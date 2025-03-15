@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Video, Image, Zap, Lock, Download, Github } from "lucide-react";
+import { Video, ImageIcon, Zap, Lock, Download, Github } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -17,6 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Star } from "lucide-react"; // Import Star icon
+import Image from "next/image";
 
 export default function Home() {
   return (
@@ -25,10 +26,15 @@ export default function Home() {
       <header className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
+            <div className=" rounded-full flex items-center justify-center">
+              <Image
+                src="favicon.png"
+                alt="logo"
+                width={440}
+                height={566}
+                className="w-28  text-white"
+              />
             </div>
-            <span className="font-bold text-xl">MediaConverter</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
             <Link
@@ -72,7 +78,7 @@ export default function Home() {
             100% Browser-Based
           </Badge>
           <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-            Media Converter Pro
+            ConvertZone
           </h1>
           <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mb-12">
             Convert and compress your videos and images instantly in your
@@ -95,7 +101,7 @@ export default function Home() {
                 variant="secondary"
                 className="gap-2 w-full sm:w-auto"
               >
-                <Image className="w-5 h-5" />
+                <ImageIcon className="w-5 h-5" />
                 Image Converter
               </Button>
             </Link>
@@ -105,7 +111,7 @@ export default function Home() {
         {/* Feature Highlights */}
         <div id="features" className="py-16">
           <h2 className="text-3xl font-bold text-center mb-12">
-            Why Choose Media Converter Pro?
+            Why Choose ConvertZone?
           </h2>
           <div className="grid md:grid-cols-2 gap-8">
             <Card className="bg-gray-800/50 border-gray-700">
@@ -263,12 +269,12 @@ export default function Home() {
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1" className="border-gray-700">
               <AccordionTrigger className="text-left">
-                Is Media Converter Pro really free?
+                Is ConvertZone really free?
               </AccordionTrigger>
               <AccordionContent className="text-gray-300">
-                Yes, Media Converter Pro is completely free to use. There are no
-                hidden fees, subscriptions, or limitations on the number of
-                files you can convert.
+                Yes, ConvertZone is completely free to use. There are no hidden
+                fees, subscriptions, or limitations on the number of files you
+                can convert.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2" className="border-gray-700">
@@ -337,7 +343,7 @@ export default function Home() {
                   variant="secondary"
                   className="gap-2 w-full sm:w-auto"
                 >
-                  <Image className="w-5 h-5" />
+                  <ImageIcon className="w-5 h-5" />
                   Convert Images
                 </Button>
               </Link>
@@ -355,10 +361,15 @@ export default function Home() {
             {/* Branding and description */}
             <div className="mb-6 md:mb-0">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-white" />
+                <div className=" rounded-full  flex items-center justify-center">
+                  <Image
+                    src="favicon.png"
+                    alt="logo"
+                    width={440}
+                    height={566}
+                    className="w-20  text-white"
+                  />
                 </div>
-                <span className="font-bold text-white">MediaConverter</span>
               </div>
               <p className="text-gray-400 text-sm">
                 Convert and compress your media files directly in your browser.
@@ -427,8 +438,7 @@ export default function Home() {
           {/* Copyright text */}
           <div className="border-t border-gray-800 mt-6 pt-6 text-center">
             <p className="text-gray-400 text-sm">
-              © {new Date().getFullYear()} Media Converter Pro. All rights
-              reserved.
+              © {new Date().getFullYear()} ConvertZone. All rights reserved.
             </p>
           </div>
         </div>
