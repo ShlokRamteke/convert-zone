@@ -46,6 +46,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="canonical" href={`${websiteUrl}`} />
+        <link rel="icon" href={`${websiteUrl}/favicon.png`} />
         <meta name="robots" content="index, follow" />
       </head>
       <body className={inter.className}>
