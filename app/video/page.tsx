@@ -2,6 +2,7 @@ import NoSSRWrapper from "@/components/NoSSRWrapper";
 import VideoConverter from "@/components/VideoConverter";
 import Link from "next/link"; // Import the Link component
 import { ArrowLeft, Zap } from "lucide-react"; // Import an icon for the button
+import Image from "next/image";
 
 export default function VideoPage() {
   return (
@@ -14,10 +15,15 @@ export default function VideoPage() {
         >
           <div className="flex items-start gap-2 mb-8 flex-col">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-                <Zap className="w-5 h-5 text-white" />
+              <div className=" flex items-center justify-center">
+                <Image
+                  src="favicon.png"
+                  alt="logo"
+                  width={440}
+                  height={566}
+                  className="w-28  text-white"
+                />
               </div>
-              <span className="font-bold text-xl">MediaConverter</span>
             </div>
             <span className="italic text-xs">Click on logo to go to home</span>
           </div>
