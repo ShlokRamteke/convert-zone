@@ -48,6 +48,10 @@ export default function RootLayout({
         <link rel="canonical" href={`${websiteUrl}`} />
         <link rel="icon" href={`${websiteUrl}/favicon.png`} />
         <meta name="robots" content="index, follow" />
+        <meta
+          name="google-site-verification"
+          content={process.env.GOOGLE_SITE_VERIFICATION}
+        />
       </head>
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
