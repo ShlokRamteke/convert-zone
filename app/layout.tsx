@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Link from "next/link";
+import { ToastProvider } from "@/components/ui/toast";
 
 const inter = Inter({ subsets: ["latin"] });
 const websiteUrl =
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   description:
     "ConvertZone is the ultimate online tool for converting images and videos to different formats quickly and efficiently. Try it now!",
   keywords:
-    "media converter, image converter, video converter, online converter, convert videos, convert images, format converter, free converter, fast converter, secure converter, image to JPG, image to PNG, video to MP4, video to AVI, video to GIF, compress images, compress videos, batch converter, web-based converter",
+    "convert zone,media converter, image converter, video converter, online converter, convert videos, convert images, format converter, free converter, fast converter, secure converter, image to JPG, image to PNG, video to MP4, video to AVI, video to GIF, compress images, compress videos, batch converter, web-based converter",
   openGraph: {
     title: "ConvertZone - Convert Images & Videos Online",
     description:
@@ -87,9 +88,11 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-          {children}
-        </div>
+        <ToastProvider>
+          <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+            {children}
+          </div>
+        </ToastProvider>
       </body>
     </html>
   );

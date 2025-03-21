@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
@@ -33,20 +33,28 @@ export default function ImageConverter() {
   const [quality, setQuality] = useState(80);
   const { toast } = useToast();
 
+  const ffmpegRef = useRef(new FFmpeg());
+
   const load = async () => {
-    if (!loaded) {
+    if (!loaded && typeof window !== "undefined") {
       try {
         const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
-        await ffmpeg.load({
-          coreURL: await toBlobURL(
-            `${baseURL}/ffmpeg-core.js`,
-            "text/javascript"
-          ),
-          wasmURL: await toBlobURL(
-            `${baseURL}/ffmpeg-core.wasm`,
-            "application/wasm"
-          ),
-        });
+        const ffmpeg = ffmpegRef.current;
+
+        // Only load if not already loaded
+        if (!ffmpeg.loaded) {
+          await ffmpeg.load({
+            coreURL: await toBlobURL(
+              `${baseURL}/ffmpeg-core.js`,
+              "text/javascript"
+            ),
+            wasmURL: await toBlobURL(
+              `${baseURL}/ffmpeg-core.wasm`,
+              "application/wasm"
+            ),
+          });
+        }
+
         setLoaded(true);
       } catch (error) {
         console.error("Error loading FFmpeg:", error);
@@ -81,10 +89,31 @@ export default function ImageConverter() {
     try {
       await load();
       setConverting(true);
+      const ffmpeg = ffmpegRef.current;
+      if (!ffmpeg.loaded) {
+        throw new Error("FFmpeg is not loaded");
+      }
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const outputName = `output_${i}.${targetFormat}`;
+
+        const inputFileExtension = file.name.split(".").pop()?.toLowerCase();
+        if (inputFileExtension === targetFormat && quality === 80) {
+          toast({
+            title: "No Conversion Needed",
+            description: "The input file is already in the target format.",
+          });
+
+          // Provide a download link for the original file
+          const url = URL.createObjectURL(file);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.name;
+          a.click();
+          URL.revokeObjectURL(url);
+          continue;
+        }
 
         ffmpeg.on("progress", ({ progress }) => {
           setProgress((prev) => {
@@ -100,7 +129,7 @@ export default function ImageConverter() {
         await ffmpeg.exec([
           "-i",
           file.name,
-          "-quality",
+          "-q:v",
           String(quality),
           outputName,
         ]);
