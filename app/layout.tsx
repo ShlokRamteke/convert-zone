@@ -1,24 +1,20 @@
-import { Github, Zap } from "lucide-react";
 import "./globals.css";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import Link from "next/link";
 import { ToastProvider } from "@/components/ui/toast";
 
-const inter = Inter({ subsets: ["latin"] });
 const websiteUrl =
   process.env.WEBSITE_URL || "https://www.mediaconverterpro.com";
 
 export const metadata: Metadata = {
-  title: "ConvertZone - Convert Images & Videos Online",
+  title: "ConvertZone - Power User Local Conversion Hub",
   description:
-    "ConvertZone is the ultimate online tool for converting images and videos to different formats quickly and efficiently. Try it now!",
+    "Convert and compress videos, audios, and images directly in your browser. No file upload required. Your data never leaves your device.",
   keywords:
-    "convert zone,media converter, image converter, video converter, online converter, convert videos, convert images, format converter, free converter, fast converter, secure converter, image to JPG, image to PNG, video to MP4, video to AVI, video to GIF, compress images, compress videos, batch converter, web-based converter",
+    "convert zone, media converter, image converter, video converter, audio converter, online converter, convert videos, convert images, format converter, free converter, fast converter, secure converter, local processing, privacy first, batch converter",
   openGraph: {
-    title: "ConvertZone - Convert Images & Videos Online",
+    title: "ConvertZone - Power User Local Conversion Hub",
     description:
-      "Easily convert images and videos to various formats with ConvertZone. Fast, secure, and free!",
+      "Convert and compress videos, audios, and images directly in your browser. No file upload required.",
     url: websiteUrl,
     type: "website",
     siteName: "ConvertZone",
@@ -27,21 +23,21 @@ export const metadata: Metadata = {
         url: `${websiteUrl}/favicon.png`,
         width: 1200,
         height: 630,
-        alt: "ConvertZone - Online Media Converter",
+        alt: "ConvertZone - Power User Local Conversion Hub",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ConvertZone - Convert Images & Videos Online",
+    title: "ConvertZone - Power User Local Conversion Hub",
     description:
-      "Easily convert images and videos to various formats with ConvertZone. Fast, secure, and free!",
+      "Convert and compress videos, audios, and images directly in your browser. No file upload required.",
     images: [
       {
         url: `${websiteUrl}/favicon.png`,
         width: 1200,
         height: 630,
-        alt: "ConvertZone - Online Media Converter",
+        alt: "ConvertZone - Power User Local Conversion Hub",
       },
     ],
     site: "@ConvertZone",
@@ -77,19 +73,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <link rel="canonical" href={`${websiteUrl}`} />
         <link rel="icon" href={`${websiteUrl}/favicon.png`} />
         <meta name="robots" content="index, follow" />
+        <meta name="theme-color" content="#0a0a0a" />
         <meta
           name="google-site-verification"
           content={process.env.GOOGLE_SITE_VERIFICATION}
         />
       </head>
-      <body className={inter.className}>
+      <body className="min-h-screen bg-cyber-black text-cyber-text font-mono">
         <ToastProvider>
-          <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+          <div className="min-h-screen bg-cyber-grid bg-grid">
             {children}
           </div>
         </ToastProvider>

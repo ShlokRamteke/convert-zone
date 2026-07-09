@@ -1,49 +1,37 @@
 import ImageConverter from "@/components/ImageConverter";
 import NoSSRWrapper from "@/components/NoSSRWrapper";
-import Link from "next/link"; // Import the Link component
-import { ArrowLeft, Zap } from "lucide-react"; // Import an icon for the button
-import Image from "next/image";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import { Lock } from "lucide-react";
 
 export default function ImagePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      <div className="container mx-auto px-4 py-16">
-        {/* Back to Home Button */}
-        <Link
-          href="/" // Replace "/" with the path to your homepage
-          className="inline-flex items-center text-sm text-gray-400 hover:text-gray-200 transition-colors"
-        >
-          <div className="flex items-start gap-2 mb-8 flex-col">
-            <div className="flex items-center gap-2">
-              <div className=" flex items-center justify-center">
-                <Image
-                  src="favicon.png"
-                  alt="logo"
-                  width={440}
-                  height={566}
-                  className="w-28  text-white"
-                />
-              </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-between">
+      <div>
+        <Header activeTab="image" />
+
+        <div className="container mx-auto px-4 py-8 md:py-12 max-w-6xl">
+          {/* Unified Page Header */}
+          <div className="mb-8 text-center">
+            <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium mb-3">
+              <Lock className="w-3 h-3" />
+              100% LOCAL & PRIVATE PROCESSING
             </div>
-            <span className="italic text-xs">Click on logo to go to home</span>
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Convert & Compress <span className="text-blue-600">Images</span> Instantly
+            </h1>
+            <p className="text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
+              Securely optimize and convert your images directly in your browser. Your files never leave your device.
+            </p>
           </div>
-        </Link>
 
-        {/* Page Title and Description */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-clip-text h-auto text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-            Image Converter
-          </h1>
-          <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto">
-            Convert and compress your images. Perfect for web and social media.
-          </p>
+          <NoSSRWrapper>
+            <ImageConverter />
+          </NoSSRWrapper>
         </div>
-
-        {/* Image Converter Component */}
-        <NoSSRWrapper>
-          <ImageConverter />
-        </NoSSRWrapper>
       </div>
+
+      <Footer />
     </div>
   );
 }

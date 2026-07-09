@@ -1,1088 +1,430 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
 import {
+  Shield,
+  Lock,
+  Zap,
   Video,
   ImageIcon,
   Music,
-  Upload,
-  Settings,
-  Check,
-  X,
-  ChevronDown,
-  ChevronRight,
-  Github,
-  Twitter,
-  Linkedin,
-  ArrowUpDown,
+  Folder,
   RefreshCw,
+  Download,
+  Play,
+  CloudOff,
+  CheckCircle2,
 } from "lucide-react";
-import { useState, useCallback, useRef } from "react";
-import { useDropzone } from "react-dropzone";
-import {
-  convertFile, 
-  convertFiles, 
-  downloadResult, 
-  formatFileSize,
-  getSupportedFormats,
-  RESOLUTION_PRESETS,
-  VIDEO_QUALITY_PRESETS,
-  AUDIO_BITRATE_PRESETS,
-  type ConversionOptions,
-} from "@/lib/ffmpeg-utils";
-import { Progress } from "@/components/ui/progress";
-import { useToast } from "@/hooks/use-toast";
-import { Checkbox } from "@/components/ui/checkbox";
-
-// Format support matrix data
-const FORMAT_MATRIX = {
-  video: [
-    { format: "MP4", vol: true, mov: true, jpg: true, eeb: true },
-    { format: "AVI", vol: true, mov: true, jpg: true, eeb: true },
-    { format: "MKV", vol: true, mov: true, jpg: true, eeb: true },
-    { format: "MOV", vol: true, mov: true, jpg: true, eeb: true },
-  ],
-  audio: [
-    { format: "MP3", vol: true, mov: true, jpg: true, eeb: true },
-    { format: "WAV", vol: true, mov: true, jpg: true, eeb: true },
-    { format: "AAC", vol: true, mov: true, jpg: true, eeb: true },
-    { format: "FLAC", vol: true, mov: true, jpg: true, eeb: true },
-  ],
-  image: [
-    { format: "JPG", vol: true, mov: false, jpg: true, eeb: true },
-    { format: "PNG", vol: true, mov: false, jpg: true, eeb: true },
-    { format: "WEBP", vol: true, mov: true, jpg: true, eeb: true },
-    { format: "GIF", vol: true, mov: true, jpg: true, eeb: true },
-  ],
-};
-
-// FAQ data
-const FAQ_DATA = [
-  {
-    id: "security",
-    title: "DATA SECURITY PROTOCOLS",
-    content:
-      "ConvertZone processes all files locally in your browser. No data is ever uploaded to external servers. Your files never leave your device, ensuring complete privacy and security.",
-  },
-  {
-    id: "filesize",
-    title: "FILE SIZE & CONCURRENCY",
-    content:
-      "There are no file size limits. Convert any number of files in parallel. Processing speed depends on your device's capabilities.",
-  },
-  {
-    id: "api",
-    title: "API ACCESS",
-    content:
-      "API access is available for enterprise users. Contact us for integration options and documentation.",
-  },
-  {
-    id: "formats",
-    title: "ADVANCED SETTINGS OF FORMATS",
-    content:
-      "Access advanced codec settings, bitrate controls, and format-specific options in each converter's settings panel.",
-  },
-];
-
-// Console messages for the status display
-const CONSOLE_MESSAGES: Array<
-  | { type: "status"; text: string }
-  | { type: "label"; label: string; value: string }
-  | { type: "log"; text: string }
-  | { type: "error"; text: string }
-> = [
-  { type: "status", text: "System initialized" },
-  { type: "label", label: "Local code:", value: "20300" },
-  { type: "label", label: "Video codec:", value: "80E" },
-  { type: "label", label: "Image code:", value: "3095" },
-  { type: "log", text: "Ready for conversion..." },
-];
-
-// Format options by media type
-const FORMAT_OPTIONS = {
-  video: ["MP4", "WEBM", "MOV", "AVI", "MKV", "GIF", "MPEG", "FLV"],
-  image: ["JPG", "PNG", "WEBP", "GIF", "BMP", "TIFF"],
-  audio: ["MP3", "WAV", "AAC", "OGG", "FLAC", "M4A"],
-};
-
-// Default output formats
-const DEFAULT_OUTPUT_FORMATS = {
-  video: "MP4",
-  image: "JPG",
-  audio: "MP3",
-};
-
-interface CustomPreset {
-  name: string;
-  options: ConversionOptions;
-}
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const [expandedFaq, setExpandedFaq] = useState<string | null>("security");
-  const [fromFormat, setFromFormat] = useState("");
-  const [toFormat, setToFormat] = useState("MP4");
-  const [batchProcessing, setBatchProcessing] = useState(true);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [batchFiles, setBatchFiles] = useState<File[]>([]);
-  const [detectedType, setDetectedType] = useState<"video" | "image" | "audio" | null>(null);
-  const [converting, setConverting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [batchProgress, setBatchProgress] = useState<number[]>([]);
-  const [customPreset, setCustomPreset] = useState<string>("");
-  const [showCodecOptions, setShowCodecOptions] = useState(false);
-  const [showConversedOptions, setShowConversedOptions] = useState(false);
-  const [conversionOptions, setConversionOptions] = useState<ConversionOptions>({});
-  const [customPresets, setCustomPresets] = useState<CustomPreset[]>([]);
-  const [consoleMessages, setConsoleMessages] = useState(CONSOLE_MESSAGES);
-  const consoleRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
-
-  // Extract format from filename
-  const getFileFormat = (filename: string): string => {
-    const parts = filename.split(".");
-    if (parts.length > 1) {
-      return parts[parts.length - 1].toUpperCase();
-    }
-    return "";
-  };
-
-  // Detect media type from file
-  const detectMediaType = (file: File): "video" | "image" | "audio" => {
-    const mimeType = file.type.toLowerCase();
-    if (mimeType.startsWith("video/")) return "video";
-    if (mimeType.startsWith("image/")) return "image";
-    if (mimeType.startsWith("audio/")) return "audio";
-    
-    // Fallback: detect from extension
-    const ext = getFileFormat(file.name).toLowerCase();
-    const videoExts = ["mp4", "webm", "mov", "avi", "mkv", "gif", "mpeg", "flv", "wmv"];
-    const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff", "svg"];
-    const audioExts = ["mp3", "wav", "aac", "ogg", "flac", "m4a", "wma"];
-    
-    if (videoExts.includes(ext)) return "video";
-    if (imageExts.includes(ext)) return "image";
-    if (audioExts.includes(ext)) return "audio";
-    
-    return "video"; // Default fallback
-  };
-
-  const addConsoleMessage = useCallback((message: string, type: "status" | "log" | "error" = "log") => {
-    setConsoleMessages(prev => {
-      const newMessages = [...prev, { type, text: message }];
-      // Keep only last 50 messages
-      return newMessages.slice(-50);
-    });
-    // Auto-scroll to bottom
-    setTimeout(() => {
-      if (consoleRef.current) {
-        consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
-      }
-    }, 0);
-  }, []);
+  const router = useRouter();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(67);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      if (batchProcessing) {
-        // Batch mode: add all files
-        setBatchFiles(prev => [...prev, ...acceptedFiles]);
-        addConsoleMessage(`Added ${acceptedFiles.length} file(s) to batch`, "status");
+      // Detect file type and route to appropriate converter
+      const file = acceptedFiles[0];
+      const mimeType = file.type.toLowerCase();
+      
+      if (mimeType.startsWith("video/")) {
+        router.push("/video");
+      } else if (mimeType.startsWith("image/")) {
+        router.push("/image");
+      } else if (mimeType.startsWith("audio/")) {
+        router.push("/audio");
       } else {
-        // Single file mode
-        const file = acceptedFiles[0];
-        const mediaType = detectMediaType(file);
-        const detectedFormat = getFileFormat(file.name);
-        
-        setSelectedFile(file);
-        setDetectedType(mediaType);
-        setFromFormat(detectedFormat);
-        setToFormat(DEFAULT_OUTPUT_FORMATS[mediaType]);
-        addConsoleMessage(`File loaded: ${file.name}`, "status");
+        // Default to video converter
+        router.push("/video");
       }
     }
-  }, [batchProcessing, addConsoleMessage]);
-
-  const handleQuickConvert = async () => {
-    if (batchProcessing) {
-      // Batch conversion
-      if (batchFiles.length === 0 || !toFormat) {
-        toast({
-          title: "Error",
-          description: "Please select files and output format for batch conversion.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      try {
-        setConverting(true);
-        setProgress(0);
-        setBatchProgress(new Array(batchFiles.length).fill(0));
-        addConsoleMessage(`Starting batch conversion of ${batchFiles.length} file(s) to ${toFormat}`, "status");
-
-        const results = await convertFiles(batchFiles, toFormat, {
-          ...conversionOptions,
-          onFileProgress: (fileIndex, fileProgress) => {
-            setBatchProgress(prev => {
-              const newProgress = [...prev];
-              newProgress[fileIndex] = fileProgress;
-              return newProgress;
-            });
-            addConsoleMessage(`File ${fileIndex + 1}/${batchFiles.length}: ${fileProgress}%`, "log");
-          },
-          onFileComplete: (fileIndex, result) => {
-            downloadResult(result);
-            addConsoleMessage(`✓ Completed: ${batchFiles[fileIndex].name} (${formatFileSize(result.originalSize)} → ${formatFileSize(result.convertedSize)})`, "status");
-          },
-          onProgress: (totalProgress) => setProgress(totalProgress),
-        });
-
-        addConsoleMessage(`Batch conversion complete! Processed ${results.length} file(s)`, "status");
-        toast({
-          title: "Success!",
-          description: `Batch conversion complete! ${results.length} file(s) converted.`,
-        });
-      } catch (error) {
-        console.error("Error during batch conversion:", error);
-        addConsoleMessage(`Error: ${error instanceof Error ? error.message : "Batch conversion failed"}`, "error");
-        toast({
-          title: "Error",
-          description: "Failed to convert files. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setConverting(false);
-        setProgress(0);
-        setBatchProgress([]);
-      }
-    } else {
-      // Single file conversion
-      if (!selectedFile || !detectedType || !toFormat) return;
-
-      try {
-        setConverting(true);
-        setProgress(0);
-        addConsoleMessage(`Converting ${selectedFile.name} to ${toFormat}...`, "status");
-
-        // Merge custom preset options if selected
-        const presetOptions = customPresets.find(p => p.name === customPreset)?.options || {};
-        const finalOptions = { ...conversionOptions, ...presetOptions };
-
-        // Convert file using the centralized FFmpeg utility
-        const result = await convertFile(selectedFile, toFormat, {
-          quality: 80, // Default quality
-          bitrate: "192", // Default bitrate for audio
-          ...finalOptions,
-          onProgress: (prog) => {
-            setProgress(prog);
-            addConsoleMessage(`Progress: ${prog}%`, "log");
-          },
-        });
-
-        // Download the converted file
-        downloadResult(result);
-        addConsoleMessage(`✓ Conversion complete: ${formatFileSize(result.originalSize)} → ${formatFileSize(result.convertedSize)}`, "status");
-
-        // Show success with file size info
-        const savedPercent = result.compressionRatio > 0 
-          ? ` (${result.compressionRatio.toFixed(1)}% smaller)`
-          : "";
-        
-        toast({
-          title: "Success!",
-          description: `Converted to ${toFormat}. ${formatFileSize(result.originalSize)} → ${formatFileSize(result.convertedSize)}${savedPercent}`,
-        });
-      } catch (error) {
-        console.error("Error during conversion:", error);
-        addConsoleMessage(`Error: ${error instanceof Error ? error.message : "Conversion failed"}`, "error");
-        toast({
-          title: "Error",
-          description: "Failed to convert file. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setConverting(false);
-        setProgress(0);
-      }
-    }
-  };
-
-  const handleBatchFileRemove = (index: number) => {
-    setBatchFiles(prev => prev.filter((_, i) => i !== index));
-    addConsoleMessage(`Removed file from batch`, "log");
-  };
-
-  const handleClearBatch = () => {
-    setBatchFiles([]);
-    addConsoleMessage("Batch cleared", "status");
-  };
-
-  const handleSavePreset = () => {
-    if (!customPreset) {
-      toast({
-        title: "Error",
-        description: "Please enter a preset name.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setCustomPresets(prev => {
-      const existing = prev.findIndex(p => p.name === customPreset);
-      const newPreset: CustomPreset = { name: customPreset, options: conversionOptions };
-      if (existing >= 0) {
-        const updated = [...prev];
-        updated[existing] = newPreset;
-        return updated;
-      }
-      return [...prev, newPreset];
-    });
-    addConsoleMessage(`Preset "${customPreset}" saved`, "status");
-    toast({
-      title: "Preset Saved",
-      description: `Custom preset "${customPreset}" has been saved.`,
-    });
-  };
-
-  const handleLoadPreset = (presetName: string) => {
-    const preset = customPresets.find(p => p.name === presetName);
-    if (preset) {
-      setConversionOptions(preset.options);
-      addConsoleMessage(`Preset "${presetName}" loaded`, "status");
-    }
-  };
-
-  const resetFile = () => {
-    setSelectedFile(null);
-    setDetectedType(null);
-    setFromFormat("");
-    setToFormat("MP4");
-  };
+  }, [router]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    noClick: false,
     accept: {
       "video/*": [],
       "image/*": [],
       "audio/*": [],
     },
+    noClick: true,
   });
 
   return (
-    <div className="min-h-screen bg-cyber-black">
-      {/* Navigation */}
-      <header className="border-b border-cyber-border">
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
-        <div className="flex justify-between items-center">
-            {/* Logo */}
+          <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-cyber-green/20 flex items-center justify-center">
-                <RefreshCw className="w-4 h-4 text-cyber-green" />
-            </div>
-              <span className="text-cyber-text font-display font-semibold tracking-wide">
-                ConvertZone
-              </span>
+              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-white rounded-sm transform rotate-45"></div>
+              </div>
+              <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
             </Link>
-
-            {/* Nav Links */}
-            <nav className="hidden md:flex items-center gap-8">
-            <Link
-              href="#features"
-                className="text-cyber-text-dim hover:text-cyber-green transition-colors text-sm"
-            >
-              Features
-            </Link>
-            <Link
-                href="#docs"
-                className="text-cyber-text-dim hover:text-cyber-green transition-colors text-sm"
-            >
-                Docs
-            </Link>
-            <Link
-                href="#api"
-                className="text-cyber-text-dim hover:text-cyber-green transition-colors text-sm"
-            >
-                API
-            </Link>
-            <Link
-                href="https://github.com"
-                target="_blank"
-                className="flex items-center gap-2 text-cyber-text-dim hover:text-cyber-green transition-colors text-sm"
-            >
-                GitHub
-                <Github className="w-4 h-4" />
-            </Link>
-          </nav>
+            <nav className="hidden md:flex items-center gap-6">
+              <Link
+                href="#features"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              >
+                Features
+              </Link>
+              <Link
+                href="#how-it-works"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              >
+                How it Works
+              </Link>
+              <Link
+                href="#privacy"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              >
+                Privacy
+              </Link>
+              <button
+                onClick={() => router.push("/video")}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Start Converting
+              </button>
+            </nav>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column */}
-          <div className="lg:col-span-2 space-y-6">
       {/* Hero Section */}
-            <div className="mb-8">
-              <h1 className="font-display text-3xl md:text-4xl font-bold text-cyber-text mb-4 tracking-tight">
-                POWER USER LOCAL
-                <br />
-                <span className="text-cyber-green">CONVERSION HUB</span>
-          </h1>
-              <p className="text-cyber-text-dim text-sm max-w-xl">
-                Convert and compress videos, audios, and images directly in
-                <br />
-                No file upload required. Your data never leaves your device.
+      <section className="container mx-auto px-4 py-16 md:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
+              Convert Media Instantly.{" "}
+              <span className="text-blue-600">100% Private.</span>
+            </h1>
+            <p className="text-lg text-gray-600 mb-8">
+              The powerful media tool that runs entirely in your browser using
+              WebAssembly. Your files never leave your device.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <button
+                onClick={() => router.push("/video")}
+                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+              >
+                Start Converting Now
+              </button>
+              <button className="border border-gray-300 text-gray-700 px-6 py-3 rounded-md font-medium hover:bg-gray-50 transition-colors flex items-center gap-2">
+                <Play className="w-4 h-4" />
+                Watch Demo
+              </button>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 text-gray-600">
+                <CloudOff className="w-5 h-5" />
+                <span className="text-sm">No Uploads</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="text-sm">Free Forever</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Drag & Drop Area */}
+          <div {...getRootProps()} className="relative">
+            <input {...getInputProps()} />
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
+                isDragActive
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-blue-300 bg-gray-50"
+              }`}
+            >
+              <Folder className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-gray-900 mb-2">
+                Drag & Drop Files Here
+              </p>
+              <p className="text-sm text-gray-500 mb-6">Video, Audio, Images</p>
+              {isProcessing && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">Processing locally...</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {processingProgress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all"
+                      style={{ width: `${processingProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Why ConvertZone Section */}
+      <section id="features" className="bg-gray-50 py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4">
+            Why ConvertZone?
+          </h2>
+          <p className="text-lg text-gray-600 text-center max-w-2xl mx-auto mb-12">
+            We utilize advanced WebAssembly technology to process massive files
+            directly on your machine, eliminating privacy risks and wait times.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <Shield className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No Uploads Required
+              </h3>
+              <p className="text-gray-600">
+                Your files never touch our servers. Everything happens locally
+                within your browser sandbox.
               </p>
             </div>
-
-            {/* Conversion Actions */}
-            <div className="cyber-panel">
-              <div className="cyber-panel-header">CONVERSION ACTIONS</div>
-              <div className="p-4 space-y-3">
-            <Link href="/video">
-                  <div className="converter-card flex items-center justify-between group">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 border border-cyber-green/50 rounded flex items-center justify-center">
-                        <Video className="w-5 h-5 text-cyber-green" />
-                      </div>
-                      <span className="text-cyber-text font-display tracking-wider text-sm">
-                        [ VIDEO CONVERTER ]
-                      </span>
-                    </div>
-                    <ArrowUpDown className="w-5 h-5 text-cyber-green" />
-                  </div>
-            </Link>
-
-            <Link href="/image">
-                  <div className="converter-card flex items-center justify-between group">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 border border-cyber-green/50 rounded flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 text-cyber-green" />
-                      </div>
-                      <span className="text-cyber-text font-display tracking-wider text-sm">
-                        [ IMAGE CONVERTER ]
-                      </span>
-                    </div>
-                    <Settings className="w-5 h-5 text-cyber-green" />
-                  </div>
-            </Link>
-
-            <Link href="/audio">
-                  <div className="converter-card flex items-center justify-between group">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 border border-cyber-green/50 rounded flex items-center justify-center">
-                        <Music className="w-5 h-5 text-cyber-green" />
-                      </div>
-                      <span className="text-cyber-text font-display tracking-wider text-sm">
-                        [ AUDIO CONVERTER ]
-                      </span>
-                    </div>
-                    <Settings className="w-5 h-5 text-cyber-green" />
-                  </div>
-            </Link>
-          </div>
-        </div>
-
-            {/* Quick Convert */}
-            <div className="cyber-panel">
-              <div className="cyber-panel-header">QUICK CONVERT</div>
-              <div className="p-4 space-y-4">
-                {/* Drop Zone */}
-                {!selectedFile ? (
-                  <div
-                    {...getRootProps()}
-                    className={`drop-zone min-h-[150px] ${
-                      isDragActive ? "active" : ""
-                    }`}
-                  >
-                    <input {...getInputProps()} />
-                    <Upload className="drop-zone-icon" />
-                    <span className="text-cyber-text font-display tracking-wider text-sm">
-                      DRAG AND DROP ZONE
-                    </span>
-                    <span className="text-cyber-text-dim text-xs">
-                      Drag and drop zone
-                    </span>
-                  </div>
-                ) : batchProcessing && batchFiles.length > 0 ? (
-                  <div className="border border-cyber-border bg-cyber-gray/30 p-4 space-y-3">
-                    {/* Batch Files Info */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-cyber-text text-sm font-medium">
-                          Batch Mode: {batchFiles.length} file(s)
-                        </p>
-                        <p className="text-cyber-text-dim text-xs">
-                          {batchFiles.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024) > 0
-                            ? `${(batchFiles.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2)} MB total`
-                            : `${(batchFiles.reduce((sum, f) => sum + f.size, 0) / 1024).toFixed(2)} KB total`}
-                        </p>
-                      </div>
-                      <button
-                        onClick={handleClearBatch}
-                        className="text-cyber-text-dim hover:text-red-500 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    {batchProgress.length > 0 && (
-                      <div className="space-y-1">
-                        {batchFiles.map((file, idx) => (
-                          <div key={idx} className="space-y-1">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-cyber-text truncate flex-1" title={file.name}>
-                                {file.name}
-                              </span>
-                              <span className="text-cyber-green ml-2">
-                                {batchProgress[idx] || 0}%
-                              </span>
-                            </div>
-                            <Progress value={batchProgress[idx] || 0} className="h-1" />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                ) : (
-                  <div className="border border-cyber-border bg-cyber-gray/30 p-4 space-y-3">
-                    {/* File Info */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 border border-cyber-green/50 rounded flex items-center justify-center shrink-0">
-                          {detectedType === "video" && <Video className="w-5 h-5 text-cyber-green" />}
-                          {detectedType === "image" && <ImageIcon className="w-5 h-5 text-cyber-green" />}
-                          {detectedType === "audio" && <Music className="w-5 h-5 text-cyber-green" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-cyber-text text-sm truncate" title={selectedFile.name}>
-                            {selectedFile.name}
-                          </p>
-                          <p className="text-cyber-text-dim text-xs">
-                            {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={resetFile}
-                        className="text-cyber-text-dim hover:text-red-500 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Detected Type Badge */}
-                    {detectedType && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-cyber-text-dim text-xs uppercase tracking-wider">
-                          Detected:
-                        </span>
-                        <span className="status-badge text-xs">
-                          {detectedType.toUpperCase()}
-                        </span>
-                        {fromFormat && (
-                          <>
-                            <span className="text-cyber-text-dim text-xs">→</span>
-                            <span className="text-cyber-green text-xs font-mono">{fromFormat}</span>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Format Selectors */}
-                    <div className="flex items-center gap-4 pt-2 border-t border-cyber-border">
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="text-cyber-text-dim text-xs uppercase tracking-wider">
-                          From
-                        </span>
-                        <select
-                          value={fromFormat}
-                          disabled
-                          className="cyber-select text-xs py-1 px-3 flex-1 bg-cyber-black/50"
-                        >
-                          <option value={fromFormat}>{fromFormat || "Auto-detected"}</option>
-                        </select>
-                      </div>
-                      <ArrowUpDown className="w-4 h-4 text-cyber-green" />
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="text-cyber-text-dim text-xs uppercase tracking-wider">
-                          To
-                        </span>
-                        <select
-                          value={toFormat}
-                          onChange={(e) => setToFormat(e.target.value)}
-                          className="cyber-select text-xs py-1 px-3 flex-1"
-                        >
-                          {detectedType && FORMAT_OPTIONS[detectedType].map((format) => (
-                            <option key={format} value={format}>
-                              {format}
-                            </option>
-                          ))}
-                        </select>
-          </div>
-        </div>
-
-                    {/* Progress Bar */}
-                    {converting && (
-                      <div className="space-y-2">
-                        <Progress value={progress} className="h-2 bg-cyber-border" />
-                        <p className="text-xs text-center text-cyber-green font-mono">
-                          CONVERTING... {progress}%
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Convert Button */}
-                    <button
-                      onClick={handleQuickConvert}
-                      disabled={converting || !toFormat || (batchProcessing && batchFiles.length === 0)}
-                      className={`cyber-btn cyber-btn-filled w-full py-2 text-sm ${
-                        converting || !toFormat || (batchProcessing && batchFiles.length === 0) ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                    >
-                      <Settings className="inline mr-2 h-3 w-3" />
-                      {converting 
-                        ? "CONVERTING..." 
-                        : batchProcessing 
-                          ? `CONVERT ${batchFiles.length} FILE(S) TO ${toFormat}`
-                          : `CONVERT TO ${toFormat}`}
-                    </button>
-                  </div>
-                )}
-
-                {/* Format Selectors (when no file) */}
-                {!selectedFile && (!batchProcessing || batchFiles.length === 0) && (
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-cyber-text-dim text-xs uppercase tracking-wider">
-                        Format
-                      </span>
-                      <select
-                        value={fromFormat}
-                        onChange={(e) => setFromFormat(e.target.value)}
-                        className="cyber-select text-xs py-1 px-3 min-w-[100px]"
-                      >
-                        <option value="">Select...</option>
-                        <option value="MP4">MP4</option>
-                        <option value="AVI">AVI</option>
-                        <option value="MKV">MKV</option>
-                        <option value="MOV">MOV</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-cyber-text-dim text-xs uppercase tracking-wider">
-                        Format
-                      </span>
-                      <select
-                        value={toFormat}
-                        onChange={(e) => setToFormat(e.target.value)}
-                        className="cyber-select text-xs py-1 px-3 min-w-[100px]"
-                      >
-                        <option value="MP4">MP4</option>
-                        <option value="AVI">AVI</option>
-                        <option value="MKV">MKV</option>
-                        <option value="MOV">MOV</option>
-                        <option value="WEBM">WEBM</option>
-                        <option value="GIF">GIF</option>
-                      </select>
-                    </div>
-                    <button className="p-2 border border-cyber-border hover:border-cyber-green transition-colors">
-                      <RefreshCw className="w-4 h-4 text-cyber-text-dim" />
-                    </button>
-                  </div>
-                )}
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <Lock className="w-6 h-6 text-blue-600" />
               </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                100% Private
+              </h3>
+              <p className="text-gray-600">
+                Since data never leaves your computer, your privacy is guaranteed
+                by design, not just policy.
+              </p>
             </div>
-
-            {/* FAQ Section */}
-            <div className="cyber-panel">
-              <div className="cyber-panel-header">FAQ</div>
-              <div className="cyber-accordion">
-                {FAQ_DATA.map((faq) => (
-                  <div key={faq.id} className="cyber-accordion-item">
-                    <button
-                      className="cyber-accordion-trigger"
-                      onClick={() =>
-                        setExpandedFaq(expandedFaq === faq.id ? null : faq.id)
-                      }
-                    >
-                      <span className="text-cyber-text">{faq.title}</span>
-                      <ChevronDown
-                        className={`w-4 h-4 text-cyber-text-dim transition-transform ${
-                          expandedFaq === faq.id ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
-                    {expandedFaq === faq.id && (
-                      <div className="cyber-accordion-content">
-                        {faq.content}
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <Zap className="w-6 h-6 text-blue-600" />
               </div>
-                    )}
-            </div>
-                ))}
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Blazing Fast
+              </h3>
+              <p className="text-gray-600">
+                No queuing or server wait times. Harness the full power of your
+                own hardware (CPU/GPU).
+              </p>
             </div>
           </div>
         </div>
+      </section>
 
-          {/* Right Column - Advanced Settings Panel */}
-          <div className="space-y-6">
-            {/* Advanced Settings & Batch */}
-            <div className="cyber-panel">
-              <div className="cyber-panel-header">ADVANCED SETTINGS & BATCH</div>
-              <div className="p-4 space-y-4">
-                {/* Local Batch Processing Toggle */}
-                <div className="flex items-center justify-between">
-                  <span className="text-cyber-text text-xs uppercase tracking-wider">
-                    Local Batch Processing
-                  </span>
-                  <button
-                    onClick={() => {
-                      setBatchProcessing(!batchProcessing);
-                      if (!batchProcessing) {
-                        setSelectedFile(null);
-                        addConsoleMessage("Batch processing enabled", "status");
-                      } else {
-                        setBatchFiles([]);
-                        addConsoleMessage("Single file mode enabled", "status");
-                      }
-                    }}
-                    className={`cyber-toggle ${batchProcessing ? "active" : ""}`}
-                  >
-                    <div className="cyber-toggle-knob" />
-                  </button>
+      {/* All-in-One Media Toolset Section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4">
+            All-in-One Media Toolset
+          </h2>
+          <p className="text-lg text-gray-600 text-center max-w-2xl mx-auto mb-12">
+            Whether you're a creator, developer, or casual user, handle all your
+            media needs in one secure place.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <Link
+              href="/video"
+              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="bg-gray-100 rounded-lg p-4 mb-4 h-48 flex items-center justify-center">
+                <div className="w-full h-full bg-gray-200 rounded flex flex-col">
+                  <div className="bg-gray-300 h-8 rounded-t flex items-center gap-2 px-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  </div>
+                  <div className="flex-1 p-4">
+                    <div className="bg-gray-400 h-24 rounded mb-2"></div>
+                    <div className="bg-gray-300 h-2 rounded mb-1"></div>
+                    <div className="bg-gray-300 h-2 rounded w-3/4"></div>
+                  </div>
                 </div>
-                <p className="text-cyber-text-dim text-xs">
-                  {batchProcessing 
-                    ? `Processing ${batchFiles.length} file(s) in batch.`
-                    : "Select batch processing in browser."}
-                </p>
-
-                {/* Batch Files List */}
-                {batchProcessing && batchFiles.length > 0 && (
-                  <div className="space-y-2 py-2 border-t border-cyber-border">
-                    <div className="flex items-center justify-between">
-                      <span className="text-cyber-text text-xs uppercase tracking-wider">
-                        Batch Files ({batchFiles.length})
-                      </span>
-                      <button
-                        onClick={handleClearBatch}
-                        className="text-cyber-text-dim hover:text-red-500 text-xs"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {batchFiles.map((file, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs bg-cyber-gray/30 p-2 rounded">
-                          <span className="text-cyber-text truncate flex-1" title={file.name}>
-                            {file.name}
-                          </span>
-                          <button
-                            onClick={() => handleBatchFileRemove(idx)}
-                            className="text-cyber-text-dim hover:text-red-500 ml-2"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Video Tools
+              </h3>
+              <p className="text-gray-600">
+                Convert formats like MP4, MKV, AVI. Compress file sizes for web,
+                and trim clips effortlessly.
+              </p>
+            </Link>
+            <Link
+              href="/image"
+              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="bg-gray-100 rounded-lg p-4 mb-4 h-48 flex items-center justify-center">
+                <div className="w-full h-full bg-gray-200 rounded flex flex-col">
+                  <div className="bg-gray-300 h-8 rounded-t flex items-center gap-2 px-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  </div>
+                  <div className="flex-1 p-4 space-y-2">
+                    <div className="bg-gray-400 h-16 rounded"></div>
+                    <div className="flex gap-2">
+                      <div className="flex-1 bg-gray-300 h-8 rounded"></div>
+                      <div className="flex-1 bg-gray-300 h-8 rounded"></div>
                     </div>
                   </div>
-                )}
-
-                {/* Conversed Options */}
-                <div className="py-2 border-t border-cyber-border">
-                  <button
-                    onClick={() => setShowConversedOptions(!showConversedOptions)}
-                    className="flex items-center justify-between w-full"
-                  >
-                    <span className="text-cyber-text text-xs uppercase tracking-wider">
-                      Conversion Options
-                    </span>
-                    <ChevronRight 
-                      className={`w-4 h-4 text-cyber-text-dim transition-transform ${
-                        showConversedOptions ? "rotate-90" : ""
-                      }`} 
-                    />
-                  </button>
-                  {showConversedOptions && (
-                    <div className="mt-3 space-y-3">
-                      {detectedType === "video" && (
-                        <>
-                          <div className="space-y-1">
-                            <label className="text-cyber-text-dim text-xs">Quality (0-100)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={conversionOptions.quality || 80}
-                              onChange={(e) => setConversionOptions(prev => ({ ...prev, quality: parseInt(e.target.value) }))}
-                              className="cyber-select w-full text-xs py-1"
-                            />
                 </div>
-                          <div className="space-y-1">
-                            <label className="text-cyber-text-dim text-xs">Resolution</label>
-                            <select
-                              value={typeof conversionOptions.resolution === "string" ? conversionOptions.resolution : ""}
-                              onChange={(e) => setConversionOptions(prev => ({ ...prev, resolution: e.target.value as keyof typeof RESOLUTION_PRESETS }))}
-                              className="cyber-select w-full text-xs py-1"
-                            >
-                              <option value="">Default</option>
-                              {Object.keys(RESOLUTION_PRESETS).map(res => (
-                                <option key={res} value={res}>{RESOLUTION_PRESETS[res as keyof typeof RESOLUTION_PRESETS].label}</option>
-                              ))}
-                            </select>
-                </div>
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={conversionOptions.removeAudio || false}
-                              onCheckedChange={(checked) => setConversionOptions(prev => ({ ...prev, removeAudio: checked as boolean }))}
-                            />
-                            <label className="text-cyber-text-dim text-xs">Remove Audio</label>
-                </div>
-                        </>
-                      )}
-                      {detectedType === "image" && (
-                        <div className="space-y-1">
-                          <label className="text-cyber-text-dim text-xs">Quality (0-100)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={conversionOptions.quality || 80}
-                            onChange={(e) => setConversionOptions(prev => ({ ...prev, quality: parseInt(e.target.value) }))}
-                            className="cyber-select w-full text-xs py-1"
-                          />
-                </div>
-                      )}
-                      {detectedType === "audio" && (
-                        <div className="space-y-1">
-                          <label className="text-cyber-text-dim text-xs">Bitrate</label>
-                          <select
-                            value={conversionOptions.bitrate || "192k"}
-                            onChange={(e) => setConversionOptions(prev => ({ ...prev, bitrate: e.target.value }))}
-                            className="cyber-select w-full text-xs py-1"
-                          >
-                            {Object.entries(AUDIO_BITRATE_PRESETS).map(([key, preset]) => (
-                              <option key={key} value={preset.bitrate}>{preset.label}</option>
-                            ))}
-                          </select>
-                </div>
-                      )}
-                </div>
-                  )}
-                </div>
-
-                {/* Custom Output Parameters */}
-                <div className="space-y-2 py-2 border-t border-cyber-border">
-                  <span className="text-cyber-text text-xs uppercase tracking-wider block">
-                    Custom Output Parameters
-                  </span>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Preset name"
-                      value={customPreset}
-                      onChange={(e) => setCustomPreset(e.target.value)}
-                      className="cyber-select flex-1 text-xs py-1"
-                    />
-                    <button
-                      onClick={handleSavePreset}
-                      className="cyber-btn text-xs px-3 py-1"
-                    >
-                      Save
-                    </button>
               </div>
-                  <select
-                    value={customPreset}
-                    onChange={(e) => {
-                      setCustomPreset(e.target.value);
-                      if (e.target.value) {
-                        handleLoadPreset(e.target.value);
-                      }
-                    }}
-                    className="cyber-select w-full text-xs py-2"
-                  >
-                    <option value="">Generate settings</option>
-                    {customPresets.map((preset) => (
-                      <option key={preset.name} value={preset.name}>
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-cyber-text-dim text-xs">
-                    Use Custom output parameters.
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Image Tools
+              </h3>
+              <p className="text-gray-600">
+                Resize, optimize for SEO, and switch formats between PNG, JPG,
+                WEBP, and AVIF instantly.
+              </p>
+            </Link>
+            <Link
+              href="/audio"
+              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="bg-gray-100 rounded-lg p-4 mb-4 h-48 flex items-center justify-center">
+                <div className="w-full h-full bg-gray-200 rounded flex flex-col">
+                  <div className="bg-gray-300 h-8 rounded-t flex items-center gap-2 px-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  </div>
+                  <div className="flex-1 p-4">
+                    <div className="space-y-2 mb-4">
+                      <div className="bg-gray-400 h-2 rounded"></div>
+                      <div className="bg-gray-400 h-2 rounded w-5/6"></div>
+                      <div className="bg-gray-400 h-2 rounded w-4/6"></div>
+                    </div>
+                    <div className="bg-blue-600 h-8 rounded flex items-center justify-center">
+                      <span className="text-white text-xs font-medium">Convert</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Audio Tools
+              </h3>
+              <p className="text-gray-600">
+                Extract audio from video files, change bitrates, convert MP3/WAV,
+                and cut tracks with precision.
+              </p>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works Section */}
+      <section id="how-it-works" className="bg-gray-50 py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4">
+            How it Works
+          </h2>
+          <p className="text-lg text-gray-600 text-center max-w-2xl mx-auto mb-12">
+            Simple, secure, and streamlined.
+          </p>
+          <div className="max-w-2xl mx-auto">
+            <div className="space-y-8">
+              <div className="flex gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Folder className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="w-0.5 h-16 bg-gray-300 mx-auto mt-2"></div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Select your file
+                  </h3>
+                  <p className="text-gray-600">
+                    Drag & drop any media file into the browser window. We support
+                    hundreds of formats.
                   </p>
                 </div>
-
-                {/* Codec Options */}
-                <div className="space-y-2 py-2 border-t border-cyber-border">
-                  <button
-                    onClick={() => setShowCodecOptions(!showCodecOptions)}
-                    className="flex items-center justify-between w-full"
-                  >
-                    <span className="text-cyber-text text-xs uppercase tracking-wider">
-                      Codec Options
-                    </span>
-                    <ChevronDown 
-                      className={`w-4 h-4 text-cyber-text-dim transition-transform ${
-                        showCodecOptions ? "rotate-180" : ""
-                      }`} 
-                    />
-                  </button>
-                  {showCodecOptions && (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-cyber-text-dim text-xs">
-                        Codec options are automatically selected based on output format.
-                      </p>
-                      {detectedType && (
-                        <div className="text-xs space-y-1">
-                          <p className="text-cyber-text">
-                            Supported formats: {getSupportedFormats(detectedType).join(", ")}
-                          </p>
-                        </div>
-                      )}
+              </div>
+              <div className="flex gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <RefreshCw className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="w-0.5 h-16 bg-gray-300 mx-auto mt-2"></div>
                 </div>
-                  )}
-                </div>
-
-                {/* Status Console */}
-                <div className="space-y-2 py-2 border-t border-cyber-border">
-                  <span className="text-cyber-text text-xs uppercase tracking-wider block">
-                    Status Console
-                  </span>
-                  <div 
-                    ref={consoleRef}
-                    className="terminal-console h-[140px] overflow-y-auto"
-                  >
-                    {consoleMessages.map((msg, idx) => (
-                      <div key={idx} className="terminal-line">
-                        {msg.type === "status" && (
-                          <span className="terminal-status">{msg.text}</span>
-                        )}
-                        {msg.type === "label" && (
-                          <>
-                            <span className="terminal-label">{msg.label}</span>{" "}
-                            <span className="text-cyber-text">{msg.value}</span>
-                          </>
-                        )}
-                        {msg.type === "log" && (
-                          <span className="text-cyber-text-dim">{msg.text}</span>
-                        )}
-                        {msg.type === "error" && (
-                          <span className="text-red-500">{msg.text}</span>
-                        )}
-                </div>
-                    ))}
-                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Process locally
+                  </h3>
+                  <p className="text-gray-600">
+                    The conversion engine runs entirely on your device using
+                    WebAssembly. No uploading needed.
+                  </p>
                 </div>
               </div>
-        </div>
-
-            {/* Supported Formats Matrix */}
-            <div className="cyber-panel">
-              <div className="cyber-panel-header">SUPPORTED FORMATS MATRIX</div>
-              <div className="p-4">
-                <table className="format-matrix">
-                  <thead>
-                    <tr>
-                      <th className="text-left">Format</th>
-                      <th>VOL</th>
-                      <th>MOV</th>
-                      <th>JPG</th>
-                      <th>EEB</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...FORMAT_MATRIX.video, ...FORMAT_MATRIX.image].map(
-                      (row, idx) => (
-                        <tr key={idx}>
-                          <td className="text-left text-cyber-text">
-                            {row.format}
-                          </td>
-                          <td>
-                            {row.vol ? (
-                              <Check className="w-4 h-4 mx-auto check-icon" />
-                            ) : (
-                              <X className="w-4 h-4 mx-auto cross-icon" />
-                            )}
-                          </td>
-                          <td>
-                            {row.mov ? (
-                              <Check className="w-4 h-4 mx-auto check-icon" />
-                            ) : (
-                              <X className="w-4 h-4 mx-auto cross-icon" />
-                            )}
-                          </td>
-                          <td>
-                            {row.jpg ? (
-                              <Check className="w-4 h-4 mx-auto check-icon" />
-                            ) : (
-                              <X className="w-4 h-4 mx-auto cross-icon" />
-                            )}
-                          </td>
-                          <td>
-                            {row.eeb ? (
-                              <Check className="w-4 h-4 mx-auto check-icon" />
-                            ) : (
-                              <X className="w-4 h-4 mx-auto cross-icon" />
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-        </div>
+              <div className="flex gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Download className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Download instantly
+                  </h3>
+                  <p className="text-gray-600">
+                    Since the file is already on your computer, saving it is
+                    instant. No server wait times.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="text-center mt-12">
+              <button
+                onClick={() => router.push("/video")}
+                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+              >
+                Try it Now
+              </button>
             </div>
           </div>
         </div>
-      </main>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-cyber-border mt-16">
-        <div className="container mx-auto px-4 py-6">
+      <footer className="border-t border-gray-200 bg-white py-8">
+        <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-cyber-text-dim text-xs">
-              ConvertZone © {new Date().getFullYear()}. All rights reserved.
-            </p>
-            <div className="flex items-center gap-6">
-                  <Link
-                href="#"
-                className="text-cyber-text-dim hover:text-cyber-green text-xs transition-colors"
-              >
-                Terms
-                  </Link>
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-white rounded-sm transform rotate-45"></div>
+              </div>
+              <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
+            </Link>
+            <nav className="flex items-center gap-6">
               <Link
-                href="#"
-                className="text-cyber-text-dim hover:text-cyber-green text-xs transition-colors"
+                href="#privacy"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
               >
-                Privacy
+                Privacy Policy
               </Link>
               <Link
-                href="#"
-                className="text-cyber-text-dim hover:text-cyber-green text-xs transition-colors"
+                href="#terms"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              >
+                Terms of Service
+              </Link>
+              <Link
+                href="#contact"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
               >
                 Contact
               </Link>
-              <div className="flex items-center gap-4 ml-4">
-                <Link
-                  href="#"
-                  className="text-cyber-text-dim hover:text-cyber-green transition-colors"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
-                </svg>
-              </Link>
-                <Link
-                  href="#"
-                  className="text-cyber-text-dim hover:text-cyber-green transition-colors"
-                >
-                  <Github className="w-4 h-4" />
-                </Link>
-              </div>
-            </div>
+            </nav>
+            <p className="text-gray-500 text-sm">
+              © 2023 ConvertZone. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>

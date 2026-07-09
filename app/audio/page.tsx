@@ -1,16 +1,16 @@
+import AudioConverter from "@/components/AudioConverter";
 import NoSSRWrapper from "@/components/NoSSRWrapper";
-import VideoConverter from "@/components/VideoConverter";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Lock } from "lucide-react";
 
-export default function VideoPage() {
+export default function AudioPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-between">
       <div>
-        <Header activeTab="video" />
+        <Header activeTab="audio" />
 
-        <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
+        <div className="container mx-auto px-4 py-8 md:py-12 max-w-4xl">
           {/* Unified Page Header */}
           <div className="mb-8 text-center">
             <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium mb-3">
@@ -18,15 +18,15 @@ export default function VideoPage() {
               100% LOCAL & PRIVATE PROCESSING
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Convert & Compress <span className="text-blue-600">Videos</span> Instantly
+              Convert & Compress <span className="text-blue-600">Audio</span> Instantly
             </h1>
             <p className="text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
-              Securely convert and optimize your videos directly in your browser. Powered by your device's CPU/GPU.
+              Securely convert and edit your audio tracks directly in your browser. Your files never leave your device.
             </p>
           </div>
 
           <NoSSRWrapper>
-            <VideoConverter />
+            <AudioConverter />
           </NoSSRWrapper>
         </div>
       </div>

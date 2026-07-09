@@ -9,17 +9,21 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-conic':
-          'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-      },
-      borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+      fontFamily: {
+        mono: ['JetBrains Mono', 'monospace'],
+        display: ['Space Grotesk', 'sans-serif'],
       },
       colors: {
+        'cyber-black': '#0a0a0a',
+        'cyber-dark': '#111111',
+        'cyber-gray': '#1a1a1a',
+        'cyber-light-gray': '#2a2a2a',
+        'cyber-green': '#00ff41',
+        'cyber-green-dim': '#00cc33',
+        'cyber-green-glow': 'rgba(0, 255, 65, 0.3)',
+        'cyber-text': '#e0e0e0',
+        'cyber-text-dim': '#808080',
+        'cyber-border': '#333333',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -61,30 +65,50 @@ const config: Config = {
           '5': 'hsl(var(--chart-5))',
         },
       },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic':
+          'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'cyber-grid': `
+          linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px)
+        `,
+      },
+      backgroundSize: {
+        'grid': '50px 50px',
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
       keyframes: {
         'accordion-down': {
-          from: {
-            height: '0',
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)',
-          },
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
         },
         'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)',
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
           },
-          to: {
-            height: '0',
+        'pulse-glow': {
+          '0%, 100%': { boxShadow: '0 0 5px rgba(0, 255, 65, 0.3)' },
+          '50%': { boxShadow: '0 0 20px rgba(0, 255, 65, 0.5)' },
           },
+        'typing': {
+          from: { width: '0' },
+          to: { width: '100%' },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
+        'typing': 'typing 2s steps(30) infinite',
       },
     },
   },
   plugins: [require('tailwindcss-animate')],
 };
+
 export default config;
