@@ -332,98 +332,116 @@ export default function VideoConverter() {
     <div {...getRootProps()} className="max-w-7xl mx-auto">
       <input {...getInputProps()} ref={fileInputRef} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Video Preview */}
+        {/* Left Column: Video Preview & Timeline Trimmer */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Video Preview */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            {file && videoUrl ? (
-              <div className="relative aspect-video bg-gray-900">
-                <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  className="w-full h-full object-contain"
-                  controls
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onEnded={() => setIsPlaying(false)}
-                />
-                {!isPlaying && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center shadow-lg transition-opacity duration-300">
-                      <Play className="w-8 h-8 text-blue-600 ml-1" />
+          {file && videoUrl ? (
+            <>
+              {/* Video Player */}
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="relative aspect-video bg-gray-900">
+                  <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    className="w-full h-full object-contain"
+                    controls
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
+                  />
+                  {!isPlaying && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center shadow-lg transition-opacity duration-300">
+                        <Play className="w-8 h-8 text-blue-600 ml-1" />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                <div className="text-center">
-                  <FileVideo className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No video selected</p>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* File Details */}
-          {file && (
-            <div className="bg-white rounded-lg shadow-sm p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <FileVideo className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                      {videoMetadata.width && videoMetadata.height && (
-                        <>
-                          <span>
-                            {videoMetadata.width}x{videoMetadata.height}
-                          </span>
-                          <span>•</span>
-                        </>
-                      )}
-                      {videoMetadata.fps && (
-                        <>
-                          <span>{videoMetadata.fps}fps</span>
-                          <span>•</span>
-                        </>
-                      )}
-                      {videoMetadata.duration && (
-                        <>
-                          <span>{formatTime(videoMetadata.duration)}</span>
-                          <span>•</span>
-                        </>
-                      )}
-                      <span>{formatFileSize(file.size)}</span>
+              {/* File Details */}
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileVideo className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                        {videoMetadata.width && videoMetadata.height && (
+                          <>
+                            <span>
+                              {videoMetadata.width}x{videoMetadata.height}
+                            </span>
+                            <span>•</span>
+                          </>
+                        )}
+                        {videoMetadata.fps && (
+                          <>
+                            <span>{videoMetadata.fps}fps</span>
+                            <span>•</span>
+                          </>
+                        )}
+                        {videoMetadata.duration && (
+                          <>
+                            <span>{formatTime(videoMetadata.duration)}</span>
+                            <span>•</span>
+                          </>
+                        )}
+                        <span>{formatFileSize(file.size)}</span>
+                      </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleFileSelect}
+                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Change File
+                  </button>
                 </div>
-                <button
-                  onClick={handleFileSelect}
-                  className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                >
-                  Change File
-                </button>
               </div>
-            </div>
-          )}
 
-          {!file && (
+              {/* Visual Video Timeline Trimmer */}
+              {videoMetadata.duration && (
+                <div>
+                  <VideoTimelineTrimmer
+                    videoRef={videoRef as React.RefObject<HTMLVideoElement>}
+                    duration={videoMetadata.duration}
+                    onTrimChange={(start, end) => {
+                      setTrimEnabled(true);
+                      setStartTime(start);
+                      setEndTime(end);
+                    }}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            /* Upload Card when No Video Selected */
             <div
-              className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${
+              className={`bg-white rounded-lg border-2 border-dashed p-12 text-center cursor-pointer transition-all ${
                 isDragActive
                   ? "border-blue-500 bg-blue-50"
-                  : "border-gray-300 bg-white hover:border-blue-400"
+                  : "border-gray-300 hover:border-blue-400"
               }`}
             >
-              <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">Drop video file here or click to browse</p>
-              <button
-                onClick={handleFileSelect}
-                className="bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors mt-4"
-              >
-                Select Video
-              </button>
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Upload className="w-8 h-8 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-gray-900 mb-1">
+                    Drop MP4, MOV, or WebM video file here
+                  </p>
+                  <p className="text-sm text-gray-500">or click to browse your computer</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFileSelect}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Select Video
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -548,6 +566,7 @@ export default function VideoConverter() {
                       <span className="text-sm font-medium text-gray-700">Remove Audio</span>
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleSettingChange(() => setRemoveAudio(!removeAudio))}
                       className={`relative w-12 h-6 rounded-full transition-colors ${
                         removeAudio ? "bg-blue-600" : "bg-gray-300"
@@ -559,67 +578,6 @@ export default function VideoConverter() {
                         }`}
                       />
                     </button>
-                  </div>
-
-                  {/* Video Trimming */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Scissors className="w-4 h-4 text-gray-600" />
-                        <span className="text-sm font-medium text-gray-700">Trim Video</span>
-                      </div>
-                      <button
-                        onClick={() => handleSettingChange(() => setTrimEnabled(!trimEnabled))}
-                        className={`relative w-12 h-6 rounded-full transition-colors ${
-                          trimEnabled ? "bg-blue-600" : "bg-gray-300"
-                        }`}
-                      >
-                        <div
-                          className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                            trimEnabled ? "translate-x-6" : ""
-                          }`}
-                        />
-                      </button>
-                    </div>
-                    {trimEnabled && (
-                      <div className="mt-3">
-                        {videoMetadata.duration ? (
-                          <VideoTimelineTrimmer
-                            videoRef={videoRef as React.RefObject<HTMLVideoElement>}
-                            duration={videoMetadata.duration}
-                            onTrimChange={(start, end) => {
-                              handleSettingChange(() => {
-                                setStartTime(start);
-                                setEndTime(end);
-                              });
-                            }}
-                          />
-                        ) : (
-                          <div className="space-y-3 pl-6 border-l-2 border-blue-200">
-                            <div>
-                              <label className="block text-xs text-gray-600 mb-1">Start Time</label>
-                              <input
-                                type="text"
-                                value={startTime}
-                                onChange={(e) => handleSettingChange(() => handleStartTimeChange(e.target.value))}
-                                placeholder="00:00:00"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-600 mb-1">End Time</label>
-                              <input
-                                type="text"
-                                value={endTime}
-                                onChange={(e) => handleSettingChange(() => handleEndTimeChange(e.target.value))}
-                                placeholder="00:00:30"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
