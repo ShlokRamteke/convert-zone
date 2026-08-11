@@ -446,7 +446,10 @@ export default function AudioConverter() {
                     step="5"
                     value={volume}
                     onChange={(e) => setVolume(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    style={{
+                      background: `linear-gradient(to right, #2563eb 0%, #2563eb ${((volume - 25) / (200 - 25)) * 100}%, #e5e7eb ${((volume - 25) / (200 - 25)) * 100}%, #e5e7eb 100%)`,
+                    }}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-blue-600"
                   />
                   <div className="flex justify-between text-xs text-gray-400 mt-1">
                     <span>25% (Quieter)</span>

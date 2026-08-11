@@ -511,7 +511,10 @@ export default function VideoConverter() {
                 max="100"
                 value={quality}
                 onChange={(e) => handleSettingChange(() => setQuality(Number(e.target.value)))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                style={{
+                  background: `linear-gradient(to right, #2563eb 0%, #2563eb ${quality}%, #e5e7eb ${quality}%, #e5e7eb 100%)`,
+                }}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-2">
                 <span>Small Size</span>
