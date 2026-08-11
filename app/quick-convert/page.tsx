@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import ConvertZoneLogo from "@/components/ConvertZoneLogo";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import {
@@ -242,9 +243,7 @@ export default function QuickConvertPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                <Settings className="w-5 h-5 text-white" />
-              </div>
+              <ConvertZoneLogo size={34} />
               <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
             </Link>
             <nav className="hidden md:flex items-center gap-6">

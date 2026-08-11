@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import ConvertZoneLogo from "@/components/ConvertZoneLogo";
 import { Lock, HelpCircle } from "lucide-react";
 
 interface HeaderProps {
@@ -14,9 +15,7 @@ export default function Header({ activeTab }: HeaderProps) {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-white rounded-sm transform rotate-45"></div>
-            </div>
+            <ConvertZoneLogo size={34} />
             <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
           </Link>
 
