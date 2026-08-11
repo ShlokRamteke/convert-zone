@@ -255,7 +255,7 @@ export default function QuickConvertPage() {
                 How it Works
               </Link>
               <Link
-                href="#privacy"
+                href="/privacy"
                 className="text-blue-600 hover:text-blue-700 transition-colors text-sm"
               >
                 Privacy

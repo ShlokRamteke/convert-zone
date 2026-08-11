@@ -82,7 +82,7 @@ export default function Home() {
                 How it Works
               </Link>
               <Link
-                href="#privacy"
+                href="/privacy"
                 className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
               >
                 Privacy
