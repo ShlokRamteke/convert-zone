@@ -2,11 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
-import { Progress } from "@/components/ui/progress";
-import { Upload, Zap, X, Check, Loader2, FileAudio, Download, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { convertAudio } from "@/lib/ffmpeg-utils";
 
 const AUDIO_FORMATS = [
   { value: "mp3", label: "MP3 Audio" },
@@ -34,41 +30,13 @@ interface FileWithStatus {
 }
 
 export default function AudioConverter() {
-  const [loaded, setLoaded] = useState(false);
   const [files, setFiles] = useState<FileWithStatus[]>([]);
   const [converting, setConverting] = useState(false);
   const [targetFormat, setTargetFormat] = useState("mp3");
   const [quality, setQuality] = useState("320");
   const { toast } = useToast();
 
-  const ffmpegRef = useRef(new FFmpeg());
-  const progressHandlerRef = useRef<((event: { progress: number }) => void) | null>(null);
   const downloadUrlsRef = useRef<string[]>([]);
-
-  const load = async () => {
-    if (!loaded && typeof window !== "undefined") {
-      try {
-        const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
-        const ffmpeg = ffmpegRef.current;
-
-        if (!ffmpeg.loaded) {
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-          });
-        }
-
-        setLoaded(true);
-      } catch (error) {
-        console.error("Error loading FFmpeg:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load conversion tools. Please try again.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles?.length > 0) {
@@ -85,8 +53,8 @@ export default function AudioConverter() {
     setFiles((prev) => {
       const newFiles = prev.filter((_, i) => i !== index);
       // Clean up download URL if exists
-      if (prev[index].downloadUrl) {
-        URL.revokeObjectURL(prev[index].downloadUrl);
+      if (prev[index]?.downloadUrl) {
+        URL.revokeObjectURL(prev[index].downloadUrl!);
       }
       return newFiles;
     });
@@ -122,7 +90,7 @@ export default function AudioConverter() {
     if (fileWithStatus.downloadUrl) {
       const a = document.createElement("a");
       a.href = fileWithStatus.downloadUrl;
-      a.download = `${fileWithStatus.file.name.split(".")[0]}.${targetFormat}`;
+      a.download = `${fileWithStatus.file.name.replace(/\.[^/.]+$/, "")}_converted.${targetFormat}`;
       a.click();
     }
   };
@@ -131,120 +99,61 @@ export default function AudioConverter() {
     if (!files.length) return;
 
     try {
-      await load();
       setConverting(true);
-      const ffmpeg = ffmpegRef.current;
-      if (!ffmpeg.loaded) {
-        throw new Error("FFmpeg is not loaded");
-      }
-
-      // Update all files to converting status
-      setFiles((prev) =>
-        prev.map((f) => ({ ...f, status: "converting" as FileStatus, progress: 0 }))
-      );
-
-      let currentFileIndex = 0;
-
-      // Remove any existing progress handler
-      if (progressHandlerRef.current) {
-        try {
-          ffmpeg.off("progress", progressHandlerRef.current);
-        } catch {
-          // Ignore
-        }
-      }
-
-      // Set up progress handler once
-      const progressHandler = ({ progress }: { progress: number }) => {
-        setFiles((prev) => {
-          const newFiles = [...prev];
-          if (currentFileIndex < newFiles.length) {
-            newFiles[currentFileIndex] = {
-              ...newFiles[currentFileIndex],
-              progress: Math.round(progress * 100),
-            };
-          }
-          return newFiles;
-        });
-      };
-
-      progressHandlerRef.current = progressHandler;
-      ffmpeg.on("progress", progressHandler);
 
       for (let i = 0; i < files.length; i++) {
-        currentFileIndex = i;
         const fileWithStatus = files[i];
+        if (fileWithStatus.status === "completed") continue;
+
         const file = fileWithStatus.file;
-        const outputName = `output_${i}.${targetFormat}`;
+
+        setFiles((prev) => {
+          const next = [...prev];
+          next[i] = { ...next[i], status: "converting", progress: 0 };
+          return next;
+        });
 
         try {
-          const fileData = await fetchFile(file);
-          await ffmpeg.writeFile(file.name, fileData);
+          const result = await convertAudio(file, targetFormat, {
+            bitrate: `${quality}k`,
+            onProgress: (prog: number) => {
+              setFiles((prev) => {
+                const next = [...prev];
+                if (next[i]) {
+                  next[i] = { ...next[i], progress: prog };
+                }
+                return next;
+              });
+            },
+          });
 
-          const ffmpegArgs: string[] = [
-            "-i",
-            file.name,
-            "-b:a",
-            `${quality}k`,
-            "-y",
-            outputName,
-          ];
-
-          const exitCode = await ffmpeg.exec(ffmpegArgs);
-          if (exitCode !== 0) {
-            throw new Error(`FFmpeg failed with exit code ${exitCode}`);
-          }
-
-          const data = await ffmpeg.readFile(outputName);
-          let arrayBuffer: ArrayBuffer;
-          if (data instanceof Uint8Array) {
-            arrayBuffer = data.buffer.slice(
-              data.byteOffset,
-              data.byteOffset + data.byteLength
-            ) as ArrayBuffer;
-          } else {
-            arrayBuffer = new TextEncoder().encode(data as string).buffer;
-          }
-          const blob = new Blob([arrayBuffer], { type: `audio/${targetFormat}` });
-          const convertedSize = blob.size;
-          const url = URL.createObjectURL(blob);
+          const url = URL.createObjectURL(result.blob);
           downloadUrlsRef.current.push(url);
 
           setFiles((prev) => {
-            const newFiles = [...prev];
-            newFiles[i] = {
-              ...newFiles[i],
-              status: "completed" as FileStatus,
+            const next = [...prev];
+            next[i] = {
+              ...next[i],
+              status: "completed",
               progress: 100,
-              convertedSize,
+              convertedSize: result.convertedSize,
               downloadUrl: url,
             };
-            return newFiles;
+            return next;
           });
-
-          // Clean up virtual filesystem
-          try {
-            await ffmpeg.deleteFile(file.name);
-            await ffmpeg.deleteFile(outputName);
-          } catch {
-            // Ignore cleanup errors
-          }
         } catch (fileError) {
           console.error(`Error processing file ${file.name}:`, fileError);
           setFiles((prev) => {
-            const newFiles = [...prev];
-            newFiles[i] = {
-              ...newFiles[i],
-              status: "error" as FileStatus,
-            };
-            return newFiles;
+            const next = [...prev];
+            next[i] = { ...next[i], status: "error" };
+            return next;
           });
         }
       }
 
       toast({
         title: "Success!",
-        description: `Your files have been processed successfully.`,
+        description: "Your files have been processed successfully.",
       });
     } catch (error) {
       console.error("Error during conversion:", error);
@@ -254,15 +163,6 @@ export default function AudioConverter() {
         variant: "destructive",
       });
     } finally {
-      // Always remove progress handler
-      if (progressHandlerRef.current) {
-        try {
-          ffmpegRef.current.off("progress", progressHandlerRef.current);
-          progressHandlerRef.current = null;
-        } catch {
-          // Ignore
-        }
-      }
       setConverting(false);
     }
   };

@@ -582,6 +582,9 @@ export async function convertAudio(
       command.push("-ac", String(options.channels));
     }
 
+    // Threads (limit to 1 for single-threaded WASM to prevent hangs)
+    command.push("-threads", "1");
+
     command.push("-y", outputName);
 
     // Execute conversion
