@@ -501,26 +501,26 @@ export default function Home() {
             </Link>
             <nav className="flex items-center gap-6">
               <Link
-                href="#privacy"
+                href="/privacy"
                 className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
               >
                 Privacy Policy
               </Link>
               <Link
-                href="#terms"
+                href="/terms"
                 className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
               >
                 Terms of Service
               </Link>
               <Link
-                href="#contact"
+                href="/privacy"
                 className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
               >
                 Contact
               </Link>
             </nav>
             <p className="text-gray-500 text-sm">
-              © 2023 ConvertZone. All rights reserved.
+              © {new Date().getFullYear()} ConvertZone. All rights reserved.
             </p>
           </div>
         </div>
