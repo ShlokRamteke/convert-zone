@@ -7,40 +7,54 @@ const websiteUrl =
   process.env.WEBSITE_URL || "https://www.mediaconverterpro.com";
 
 export const metadata: Metadata = {
-  title: "ConvertZone - Power User Local Conversion Hub",
+  title: {
+    default: "ConvertZone - In-Browser Local Media Converter & Trimmer",
+    template: "%s | ConvertZone",
+  },
   description:
-    "Convert and compress videos, audios, and images directly in your browser. No file upload required. Your data never leaves your device.",
-  keywords:
-    "convert zone, media converter, image converter, video converter, audio converter, online converter, convert videos, convert images, format converter, free converter, fast converter, secure converter, local processing, privacy first, batch converter",
+    "100% Private, browser-based media conversion tool powered by WebAssembly. Convert MP4, WebM, WebP, AVIF, MP3, WAV with 4K Lanczos upscaling, WaveSurfer trimming, and zero server uploads.",
+  keywords: [
+    "ConvertZone",
+    "media converter",
+    "4K video upscaling",
+    "video trimmer",
+    "audio converter",
+    "audio volume booster",
+    "waveform trimmer",
+    "image converter",
+    "webp converter",
+    "avif converter",
+    "local conversion",
+    "privacy first",
+    "browser WASM converter",
+  ],
+  authors: [{ name: "ConvertZone Team" }],
+  creator: "ConvertZone",
+  publisher: "ConvertZone",
+  category: "Technology & Tools",
   openGraph: {
-    title: "ConvertZone - Power User Local Conversion Hub",
+    title: "ConvertZone - In-Browser Local Media Converter",
     description:
-      "Convert and compress videos, audios, and images directly in your browser. No file upload required.",
+      "Convert videos, images, and audio directly in your browser. 100% private, 0 bytes uploaded to servers.",
     url: websiteUrl,
-    type: "website",
     siteName: "ConvertZone",
     images: [
       {
-        url: `${websiteUrl}/favicon.png`,
-        width: 1200,
-        height: 630,
-        alt: "ConvertZone - Power User Local Conversion Hub",
+        url: `${websiteUrl}/favicon.svg`,
+        width: 512,
+        height: 512,
+        alt: "ConvertZone Logo",
       },
     ],
+    locale: "en_US",
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ConvertZone - Power User Local Conversion Hub",
+    title: "ConvertZone - In-Browser Local Media Converter",
     description:
-      "Convert and compress videos, audios, and images directly in your browser. No file upload required.",
-    images: [
-      {
-        url: `${websiteUrl}/favicon.png`,
-        width: 1200,
-        height: 630,
-        alt: "ConvertZone - Power User Local Conversion Hub",
-      },
-    ],
+      "Convert videos, images, and audio directly in your browser. 100% private, 0 bytes uploaded.",
+    images: [`${websiteUrl}/favicon.svg`],
     site: "@ConvertZone",
     creator: "@ConvertZone",
   },
@@ -61,9 +75,12 @@ export const metadata: Metadata = {
     canonical: websiteUrl,
   },
   icons: {
-    icon: `${websiteUrl}/favicon.png`,
-    apple: `${websiteUrl}/favicon.png`,
-    shortcut: `${websiteUrl}/favicon.png`,
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: "/favicon.svg",
+    shortcut: "/favicon.svg",
   },
   metadataBase: new URL(websiteUrl),
 };
@@ -80,9 +97,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         <link rel="canonical" href={`${websiteUrl}`} />
-        <link rel="icon" href={`${websiteUrl}/favicon.png`} />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.png" type="image/png" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <meta name="robots" content="index, follow" />
-        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="theme-color" content="#2563eb" />
         <meta
           name="google-site-verification"
           content={process.env.GOOGLE_SITE_VERIFICATION}
