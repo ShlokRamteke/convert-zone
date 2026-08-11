@@ -104,7 +104,7 @@ export default function AudioConverter() {
     setFiles([]);
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, open, isDragActive } = useDropzone({
     onDrop,
     accept: {
       "audio/*": [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"],
@@ -305,8 +305,10 @@ export default function AudioConverter() {
             <p className="text-sm text-gray-500">or click to browse your computer</p>
           </div>
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
+              open();
             }}
             className="bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
           >
