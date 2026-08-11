@@ -56,9 +56,9 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">3. Cookies & Storage</h2>
+          <h2 className="text-xl font-bold text-gray-900">3. Memory & Storage</h2>
           <p className="text-gray-600 leading-relaxed text-sm">
-            ConvertZone uses essential browser local storage (`localStorage`) to remember your preferred settings (such as quality presets or resolution defaults). Standard analytics cookies may be stored by Google Analytics or Microsoft Clarity as outlined above.
+            ConvertZone processes all media files entirely within volatile browser memory (`RAM`) during your session without storing persistent user settings or tracking data in `localStorage`. Standard session telemetry may be processed by integrated analytics services to maintain system performance.
           </p>
         </section>
 
