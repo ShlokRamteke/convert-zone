@@ -169,6 +169,66 @@ export default function AudioConverter() {
     }
   };
 
+  const convertSingleFile = async (index: number) => {
+    const fileWithStatus = files[index];
+    if (!fileWithStatus || converting) return;
+
+    const file = fileWithStatus.file;
+
+    setFiles((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], status: "converting", progress: 0 };
+      return next;
+    });
+
+    try {
+      const result = await convertAudio(file, targetFormat, {
+        bitrate: `${quality}k`,
+        onProgress: (prog: number) => {
+          setFiles((prev) => {
+            const next = [...prev];
+            if (next[index]) {
+              next[index] = { ...next[index], progress: prog };
+            }
+            return next;
+          });
+        },
+      });
+
+      const url = URL.createObjectURL(result.blob);
+      downloadUrlsRef.current.push(url);
+
+      setFiles((prev) => {
+        const next = [...prev];
+        next[index] = {
+          ...next[index],
+          status: "completed",
+          progress: 100,
+          convertedSize: result.convertedSize,
+          downloadUrl: url,
+        };
+        return next;
+      });
+
+      toast({
+        title: "Success!",
+        description: `${file.name} converted successfully.`,
+      });
+    } catch (fileError) {
+      console.error(`Error processing file ${file.name}:`, fileError);
+      setFiles((prev) => {
+        const next = [...prev];
+        next[index] = { ...next[index], status: "error" };
+        return next;
+      });
+      toast({
+        title: "Error",
+        description: `Failed to convert ${file.name}.`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusIcon = (status: FileStatus) => {
     switch (status) {
       case "completed":
@@ -353,6 +413,17 @@ export default function AudioConverter() {
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {(fileWithStatus.status === "waiting" || fileWithStatus.status === "error") && (
+                      <button
+                        onClick={() => convertSingleFile(index)}
+                        disabled={converting}
+                        className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      >
+                        <Zap className="w-3 h-3" />
+                        Convert
+                      </button>
+                    )}
+
                     {fileWithStatus.status === "converting" && (
                       <div className="flex items-center gap-2 min-w-[60px]">
                         <div className="w-24 bg-gray-200 rounded-full h-2">
