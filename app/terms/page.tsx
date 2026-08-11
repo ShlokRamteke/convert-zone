@@ -62,7 +62,7 @@ export default function TermsPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-bold text-gray-900">4. Analytics & Service Improvements</h2>
           <p className="text-gray-600 leading-relaxed text-sm">
-            To optimize performance and monitor application stability, ConvertZone integrates anonymous diagnostics including <strong>Google Analytics</strong> and <strong>Microsoft Clarity</strong>. These services collect aggregate usage statistics (such as page views and session interactions) without collecting or inspecting your media files.
+            To optimize performance and monitor application stability, ConvertZone integrates anonymous diagnostics and web analytics services. These services collect aggregate usage statistics (such as page views and session interactions) without collecting or inspecting your media files.
           </p>
         </section>
 

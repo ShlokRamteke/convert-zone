@@ -46,20 +46,12 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">2. Analytics Integration (Google Analytics & Microsoft Clarity)</h2>
+          <h2 className="text-xl font-bold text-gray-900">2. Analytics & Performance Diagnostics</h2>
           <p className="text-gray-600 leading-relaxed text-sm">
-            ConvertZone is integrated with industry-standard analytics platforms to improve user experience, optimize performance, and understand feature usage:
+            To optimize performance and monitor application stability, ConvertZone integrates anonymous diagnostics and performance telemetry. These services collect aggregate usage statistics (such as page views, device types, and user interface interactions) to identify rendering bottlenecks and improve user experience without collecting or inspecting your media files.
           </p>
-          <ul className="list-disc pl-5 space-y-2 text-sm text-gray-600">
-            <li>
-              <strong>Google Analytics (GA4)</strong>: Collects high-level traffic metrics, device types, and page interaction events.
-            </li>
-            <li>
-              <strong>Microsoft Clarity</strong>: Provides anonymized session recordings, heatmaps, and UX interaction telemetry to identify rendering bugs and UI bottlenecks.
-            </li>
-          </ul>
           <p className="text-gray-600 leading-relaxed text-sm font-medium">
-            Note: Neither Google Analytics nor Microsoft Clarity has access to your media files, video contents, or converted outputs.
+            Note: Anonymous diagnostics services never have access to your media files, video contents, or converted outputs.
           </p>
         </section>
 
