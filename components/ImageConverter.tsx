@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { convertFile, formatFileSize } from "@/lib/ffmpeg-utils";
+import { createZipArchive } from "@/lib/zip-utils";
 import {
   Upload,
   Check,
@@ -202,20 +203,58 @@ export default function ImageConverter() {
     }
   };
 
-  const downloadAll = () => {
+  const downloadAll = async () => {
     const completedFiles = files.filter((f) => f.status === "completed" && f.downloadUrl);
-    completedFiles.forEach((fileWithStatus, index) => {
-      if (fileWithStatus.downloadUrl) {
-        setTimeout(() => {
-          const a = document.createElement("a");
-          a.href = fileWithStatus.downloadUrl!;
-          a.download = `${fileWithStatus.file.name.split(".")[0]}.${targetFormat}`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        }, index * 350);
-      }
-    });
+    if (completedFiles.length === 0) return;
+
+    if (completedFiles.length === 1) {
+      const single = completedFiles[0];
+      const a = document.createElement("a");
+      a.href = single.downloadUrl!;
+      a.download = `${single.file.name.split(".")[0]}.${targetFormat}`;
+      a.click();
+      return;
+    }
+
+    try {
+      const zipEntries = await Promise.all(
+        completedFiles.map(async (f) => {
+          const res = await fetch(f.downloadUrl!);
+          const blob = await res.blob();
+          const baseName = f.file.name.substring(0, f.file.name.lastIndexOf(".")) || f.file.name;
+          return {
+            name: `${baseName}.${targetFormat}`,
+            blob,
+          };
+        })
+      );
+
+      const zipBlob = await createZipArchive(zipEntries);
+      const zipUrl = URL.createObjectURL(zipBlob);
+
+      const a = document.createElement("a");
+      a.href = zipUrl;
+      a.download = `convertzone_images.zip`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(zipUrl), 10000);
+
+      toast({
+        title: "ZIP Archive Created!",
+        description: `Downloaded ${completedFiles.length} images in convertzone_images.zip`,
+      });
+    } catch (err) {
+      console.error("ZIP creation failed:", err);
+      completedFiles.forEach((fileWithStatus, index) => {
+        if (fileWithStatus.downloadUrl) {
+          setTimeout(() => {
+            const a = document.createElement("a");
+            a.href = fileWithStatus.downloadUrl!;
+            a.download = `${fileWithStatus.file.name.split(".")[0]}.${targetFormat}`;
+            a.click();
+          }, index * 300);
+        }
+      });
+    }
   };
 
   const completedCount = files.filter((f) => f.status === "completed").length;
