@@ -14,9 +14,7 @@ export default function PrivacyPage() {
       <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-white rounded-sm transform rotate-45" />
-            </div>
+            <img src="/favicon.png" alt="ConvertZone" className="w-8 h-8 object-contain" />
             <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
           </Link>
           <Link

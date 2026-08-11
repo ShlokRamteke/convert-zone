@@ -64,9 +64,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                <div className="w-4 h-4 border-2 border-white rounded-sm transform rotate-45"></div>
-              </div>
+              <img src="/favicon.png" alt="ConvertZone" className="w-8 h-8 object-contain" />
               <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
             </Link>
             <nav className="hidden md:flex items-center gap-6">
@@ -494,9 +492,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                <div className="w-4 h-4 border-2 border-white rounded-sm transform rotate-45"></div>
-              </div>
+              <img src="/favicon.png" alt="ConvertZone" className="w-8 h-8 object-contain" />
               <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
             </Link>
             <nav className="flex items-center gap-6">
