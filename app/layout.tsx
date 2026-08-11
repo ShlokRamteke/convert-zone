@@ -1,49 +1,60 @@
-import { Github, Zap } from "lucide-react";
 import "./globals.css";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import Link from "next/link";
+import Script from "next/script";
 import { ToastProvider } from "@/components/ui/toast";
 
-const inter = Inter({ subsets: ["latin"] });
 const websiteUrl =
   process.env.WEBSITE_URL || "https://www.mediaconverterpro.com";
 
 export const metadata: Metadata = {
-  title: "ConvertZone - Convert Images & Videos Online",
+  title: {
+    default: "ConvertZone - In-Browser Local Media Converter & Trimmer",
+    template: "%s | ConvertZone",
+  },
   description:
-    "ConvertZone is the ultimate online tool for converting images and videos to different formats quickly and efficiently. Try it now!",
-  keywords:
-    "convert zone,media converter, image converter, video converter, online converter, convert videos, convert images, format converter, free converter, fast converter, secure converter, image to JPG, image to PNG, video to MP4, video to AVI, video to GIF, compress images, compress videos, batch converter, web-based converter",
+    "100% Private, browser-based media conversion tool powered by WebAssembly. Convert MP4, WebM, WebP, AVIF, MP3, WAV with 4K Lanczos upscaling, WaveSurfer trimming, and zero server uploads.",
+  keywords: [
+    "ConvertZone",
+    "media converter",
+    "4K video upscaling",
+    "video trimmer",
+    "audio converter",
+    "audio volume booster",
+    "waveform trimmer",
+    "image converter",
+    "webp converter",
+    "avif converter",
+    "local conversion",
+    "privacy first",
+    "browser WASM converter",
+  ],
+  authors: [{ name: "ConvertZone Team" }],
+  creator: "ConvertZone",
+  publisher: "ConvertZone",
+  category: "Technology & Tools",
   openGraph: {
-    title: "ConvertZone - Convert Images & Videos Online",
+    title: "ConvertZone - In-Browser Local Media Converter",
     description:
-      "Easily convert images and videos to various formats with ConvertZone. Fast, secure, and free!",
+      "Convert videos, images, and audio directly in your browser. 100% private, 0 bytes uploaded to servers.",
     url: websiteUrl,
-    type: "website",
     siteName: "ConvertZone",
     images: [
       {
-        url: `${websiteUrl}/favicon.png`,
-        width: 1200,
-        height: 630,
-        alt: "ConvertZone - Online Media Converter",
+        url: `${websiteUrl}/favicon.svg`,
+        width: 512,
+        height: 512,
+        alt: "ConvertZone Logo",
       },
     ],
+    locale: "en_US",
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ConvertZone - Convert Images & Videos Online",
+    title: "ConvertZone - In-Browser Local Media Converter",
     description:
-      "Easily convert images and videos to various formats with ConvertZone. Fast, secure, and free!",
-    images: [
-      {
-        url: `${websiteUrl}/favicon.png`,
-        width: 1200,
-        height: 630,
-        alt: "ConvertZone - Online Media Converter",
-      },
-    ],
+      "Convert videos, images, and audio directly in your browser. 100% private, 0 bytes uploaded.",
+    images: [`${websiteUrl}/favicon.svg`],
     site: "@ConvertZone",
     creator: "@ConvertZone",
   },
@@ -64,9 +75,12 @@ export const metadata: Metadata = {
     canonical: websiteUrl,
   },
   icons: {
-    icon: `${websiteUrl}/favicon.png`,
-    apple: `${websiteUrl}/favicon.png`,
-    shortcut: `${websiteUrl}/favicon.png`,
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: "/favicon.svg",
+    shortcut: "/favicon.svg",
   },
   metadataBase: new URL(websiteUrl),
 };
@@ -76,20 +90,65 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const gaId = process.env.NEXT_PUBLIC_GA_ID;
+  const clarityId = process.env.NEXT_PUBLIC_CLARITY_ID;
+
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <link rel="canonical" href={`${websiteUrl}`} />
-        <link rel="icon" href={`${websiteUrl}/favicon.png`} />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.png" type="image/png" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <meta name="robots" content="index, follow" />
+        <meta name="theme-color" content="#2563eb" />
         <meta
           name="google-site-verification"
           content={process.env.GOOGLE_SITE_VERIFICATION}
         />
       </head>
-      <body className={inter.className}>
+      <body className="min-h-screen bg-cyber-black text-cyber-text font-mono">
+        {/* Google Analytics GA4 */}
+        {gaId && (
+          <>
+            <Script
+              strategy="afterInteractive"
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+            />
+            <Script
+              id="google-analytics"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${gaId}');
+                `,
+              }}
+            />
+          </>
+        )}
+
+        {/* Microsoft Clarity */}
+        {clarityId && (
+          <Script
+            id="microsoft-clarity"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function(c,l,a,r,i,t,y){
+                    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+                })(window, document, "clarity", "script", "${clarityId}");
+              `,
+            }}
+          />
+        )}
+
         <ToastProvider>
-          <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+          <div className="min-h-screen bg-cyber-grid bg-grid">
             {children}
           </div>
         </ToastProvider>

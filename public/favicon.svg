@@ -1,0 +1,14 @@
+<svg width="64" height="64" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="czGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#czGrad1)" />
+  <path d="M 28 13 C 34 13 37 18 37 24 C 37 29 33 34 27 35" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" fill="none" />
+  <path d="M 23 35 L 28 32 L 28 38 Z" fill="#ffffff" />
+  <path d="M 20 35 C 14 35 11 30 11 24 C 11 19 15 14 21 13" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" fill="none" />
+  <path d="M 25 13 L 20 16 L 20 10 Z" fill="#ffffff" />
+  <circle cx="24" cy="24" r="3" fill="#ffffff" />
+</svg>

@@ -1,443 +1,522 @@
-import { Button } from "@/components/ui/button";
+"use client";
+
 import Link from "next/link";
-import { Video, ImageIcon, Zap, Lock, Download, Github } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import ConvertZoneLogo from "@/components/ConvertZoneLogo";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Star } from "lucide-react"; // Import Star icon
-import Image from "next/image";
+  Shield,
+  Lock,
+  Zap,
+  Video,
+  ImageIcon,
+  Music,
+  Folder,
+  RefreshCw,
+  Download,
+  Play,
+  CloudOff,
+  CheckCircle2,
+  X,
+  Cpu,
+  FileCheck,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(67);
+  const [showDemoModal, setShowDemoModal] = useState(false);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      // Detect file type and route to appropriate converter
+      const file = acceptedFiles[0];
+      const mimeType = file.type.toLowerCase();
+      
+      if (mimeType.startsWith("video/")) {
+        router.push("/video");
+      } else if (mimeType.startsWith("image/")) {
+        router.push("/image");
+      } else if (mimeType.startsWith("audio/")) {
+        router.push("/audio");
+      } else {
+        // Default to video converter
+        router.push("/video");
+      }
+    }
+  }, [router]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      "video/*": [],
+      "image/*": [],
+      "audio/*": [],
+    },
+    noClick: true,
+  });
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      {/* Navigation */}
-      <header className="container mx-auto px-4 py-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className=" rounded-full flex items-center justify-center">
-              <Image
-                src="favicon.png"
-                alt="logo"
-                width={440}
-                height={566}
-                className="w-28  text-white"
-              />
-            </div>
-          </div>
-          <nav className="hidden md:flex items-center gap-6">
-            <Link
-              href="#features"
-              className="text-gray-300 hover:text-white transition-colors"
-            >
-              Features
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <Link href="/" className="flex items-center gap-2">
+              <ConvertZoneLogo size={34} />
+              <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
             </Link>
-            <Link
-              href="#how-it-works"
-              className="text-gray-300 hover:text-white transition-colors"
-            >
-              How It Works
-            </Link>
-            <Link
-              href="#faq"
-              className="text-gray-300 hover:text-white transition-colors"
-            >
-              FAQ
-            </Link>
-          </nav>
-          <div>
-            <Link
-              href={process.env.GITHUB_REPO_URL || "https://github.com/"}
-              target="_blank"
-              className="text-gray-300 hover:text-white transition-colors"
-            >
-              <Github className="w-5 h-5" />
-            </Link>
+            <nav className="hidden md:flex items-center gap-6">
+              <Link
+                href="#features"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              >
+                Features
+              </Link>
+              <Link
+                href="#how-it-works"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              >
+                How it Works
+              </Link>
+              <Link
+                href="/privacy"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              >
+                Privacy
+              </Link>
+              <button
+                onClick={() => router.push("/video")}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Start Converting
+              </button>
+            </nav>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <Badge
-            variant="outline"
-            className="mb-4 px-3 py-1 border-blue-500 text-blue-400"
-          >
-            100% Browser-Based
-          </Badge>
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-            ConvertZone
-          </h1>
-          <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mb-12">
-            Convert and compress your videos and images instantly in your
-            browser. No upload needed - everything happens locally!
-          </p>
-
-          <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6">
-            <Link href="/video">
-              <Button
-                size="lg"
-                className="gap-2 w-full sm:w-auto bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800"
-              >
-                <Video className="w-5 h-5" />
-                Video Converter
-              </Button>
-            </Link>
-            <Link href="/image">
-              <Button
-                size="lg"
-                variant="secondary"
-                className="gap-2 w-full sm:w-auto"
-              >
-                <ImageIcon className="w-5 h-5" />
-                Image Converter
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Feature Highlights */}
-        <div id="features" className="py-16">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Why Choose ConvertZone?
-          </h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <Card className="bg-gray-800/50 border-gray-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Lock className="w-5 h-5 text-blue-400" />
-                  Privacy First
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-gray-300">
-                  Your files never leave your device. All processing happens
-                  locally in your browser, ensuring complete privacy.
-                </CardDescription>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gray-800/50 border-gray-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Download className="w-5 h-5 text-blue-400" />
-                  Free & Unlimited
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-gray-300">
-                  No subscription required. Convert as many files as you want
-                  without any hidden fees or limitations.
-                </CardDescription>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* How It Works */}
-        <div id="how-it-works" className="py-16">
-          <h2 className="text-3xl font-bold text-center mb-12">How It Works</h2>
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-blue-400">1</span>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Select Files</h3>
-              <p className="text-gray-300">
-                Choose the video or image files you want to convert from your
-                device.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-blue-400">2</span>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Choose Format</h3>
-              <p className="text-gray-300">
-                Select your desired output format and adjust quality settings if
-                needed.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-blue-400">3</span>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Download</h3>
-              <p className="text-gray-300">
-                Once conversion is complete, download your files directly to
-                your device.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Conversion Options */}
-        <div className="py-16 max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Supported Formats
-          </h2>
-          <Tabs defaultValue="video" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="video">Video Formats</TabsTrigger>
-              <TabsTrigger value="image">Image Formats</TabsTrigger>
-            </TabsList>
-            <TabsContent
-              value="video"
-              className="bg-gray-800/50 p-6 rounded-lg border border-gray-700"
-            >
-              <h3 className="text-xl font-semibold mb-4">
-                Video Conversion Options
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">MP4</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">WebM</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">MOV</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">AVI</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">MKV</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">GIF</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">MPEG</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">FLV</p>
-                </div>
-              </div>
-            </TabsContent>
-            <TabsContent
-              value="image"
-              className="bg-gray-800/50 p-6 rounded-lg border border-gray-700"
-            >
-              <h3 className="text-xl font-semibold mb-4">
-                Image Conversion Options
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">JPG/JPEG</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">PNG</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">WebP</p>
-                </div>
-
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">GIF</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">BMP</p>
-                </div>
-                <div className="bg-gray-700/50 p-3 rounded-md text-center">
-                  <p className="font-medium">TIFF</p>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* FAQ Section */}
-        <div id="faq" className="py-16 max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Frequently Asked Questions
-          </h2>
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="item-1" className="border-gray-700">
-              <AccordionTrigger className="text-left">
-                Is ConvertZone really free?
-              </AccordionTrigger>
-              <AccordionContent className="text-gray-300">
-                Yes, ConvertZone is completely free to use. There are no hidden
-                fees, subscriptions, or limitations on the number of files you
-                can convert.
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="item-2" className="border-gray-700">
-              <AccordionTrigger className="text-left">
-                How is my privacy protected?
-              </AccordionTrigger>
-              <AccordionContent className="text-gray-300">
-                All file processing happens directly in your browser. Your files
-                are never uploaded to any server, ensuring complete privacy and
-                security of your data.
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="item-3" className="border-gray-700">
-              <AccordionTrigger className="text-left">
-                What are the file size limits?
-              </AccordionTrigger>
-              <AccordionContent className="text-gray-300">
-                Since processing happens in your browser, the file size limits
-                depend on your device's memory. Most modern devices can handle
-                files up to 1GB without issues.
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="item-4" className="border-gray-700">
-              <AccordionTrigger className="text-left">
-                Can I use this on my mobile device?
-              </AccordionTrigger>
-              <AccordionContent className="text-gray-300">
-                Yes, Media Converter Pro works on all modern browsers, including
-                mobile browsers. However, processing large files might be slower
-                on mobile devices.
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="item-5" className="border-gray-700">
-              <AccordionTrigger className="text-left">
-                Do I need to install anything?
-              </AccordionTrigger>
-              <AccordionContent className="text-gray-300">
-                No installation is required. Media Converter Pro runs entirely
-                in your web browser, making it accessible from any device with
-                an internet connection.
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
-
-        {/* CTA Section */}
-        <div className="py-16">
-          <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-xl p-8 text-center">
-            <h2 className="text-3xl font-bold mb-4">
-              Ready to Convert Your Media?
-            </h2>
-            <p className="text-gray-300 max-w-2xl mx-auto mb-8">
-              Start converting your videos and images now. No sign-up required,
-              just select your files and go!
+      <section className="container mx-auto px-4 py-16 md:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
+              Convert Media Instantly.{" "}
+              <span className="text-blue-600">100% Private.</span>
+            </h1>
+            <p className="text-lg text-gray-600 mb-8">
+              The powerful media tool that runs entirely in your browser using
+              WebAssembly. Your files never leave your device.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Link href="/video">
-                <Button size="lg" className="gap-2 w-full sm:w-auto">
-                  <Video className="w-5 h-5" />
-                  Convert Videos
-                </Button>
-              </Link>
-              <Link href="/image">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="gap-2 w-full sm:w-auto"
-                >
-                  <ImageIcon className="w-5 h-5" />
-                  Convert Images
-                </Button>
-              </Link>
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <button
+                onClick={() => router.push("/video")}
+                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+              >
+                Start Converting Now
+              </button>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 text-gray-600">
+                <CloudOff className="w-5 h-5" />
+                <span className="text-sm">No Uploads</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="text-sm">Free Forever</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Drag & Drop Area */}
+          <div {...getRootProps()} className="relative">
+            <input {...getInputProps()} />
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
+                isDragActive
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-blue-300 bg-gray-50"
+              }`}
+            >
+              <Folder className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-gray-900 mb-2">
+                Drag & Drop Files Here
+              </p>
+              <p className="text-sm text-gray-500 mb-6">Video, Audio, Images</p>
+              {isProcessing && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">Processing locally...</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {processingProgress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all"
+                      style={{ width: `${processingProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Why ConvertZone Section */}
+      <section id="features" className="bg-gray-50 py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4">
+            Why ConvertZone?
+          </h2>
+          <p className="text-lg text-gray-600 text-center max-w-2xl mx-auto mb-12">
+            We utilize advanced WebAssembly technology to process massive files
+            directly on your machine, eliminating privacy risks and wait times.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <Shield className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No Uploads Required
+              </h3>
+              <p className="text-gray-600">
+                Your files never touch our servers. Everything happens locally
+                within your browser sandbox.
+              </p>
+            </div>
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <Lock className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                100% Private
+              </h3>
+              <p className="text-gray-600">
+                Since data never leaves your computer, your privacy is guaranteed
+                by design, not just policy.
+              </p>
+            </div>
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <Zap className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Blazing Fast
+              </h3>
+              <p className="text-gray-600">
+                No queuing or server wait times. Harness the full power of your
+                own hardware (CPU/GPU).
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* All-in-One Media Toolset Section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4">
+            All-in-One Media Toolset
+          </h2>
+          <p className="text-lg text-gray-600 text-center max-w-2xl mx-auto mb-12">
+            Whether you're a creator, developer, or casual user, handle all your
+            media needs in one secure place.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Video Tools Card */}
+            <Link
+              href="/video"
+              className="group bg-white rounded-xl border border-gray-200 p-6 hover:border-blue-500 hover:shadow-xl transition-all flex flex-col justify-between"
+            >
+              <div>
+                {/* Visual Header / Mockup */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-lg p-4 mb-5">
+                  <div className="flex items-center justify-between border-b border-blue-200/60 pb-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Video className="w-5 h-5 text-blue-600" />
+                      <span className="text-xs font-semibold text-gray-900">Video Engine</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-blue-600 text-white px-2 py-0.5 rounded font-bold">
+                      4K UHD + Lanczos
+                    </span>
+                  </div>
+
+                  {/* Feature Pills */}
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-blue-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Upscaling:</span>
+                      <span className="text-blue-600 font-semibold font-mono">1080p → 4K (3840x2160)</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-blue-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Trimmer:</span>
+                      <span className="text-amber-600 font-semibold">Pro Timeline Handles</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-blue-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Frame Rates:</span>
+                      <span className="text-gray-900 font-mono font-medium">24, 30, 60 FPS</span>
+                    </div>
+                  </div>
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors flex items-center gap-2">
+                  Video Tools
+                </h3>
+                <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                  Convert MP4, WebM, and GIF formats. Scale up to 4K UHD with Lanczos resampling, trim video clips on an interactive timeline, or mute audio streams.
+                </p>
+
+                {/* Formats Badges */}
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {["MP4", "WEBM", "GIF", "4K UHD", "60 FPS"].map((fmt) => (
+                    <span
+                      key={fmt}
+                      className="text-[11px] font-mono bg-gray-100 text-gray-700 font-medium px-2 py-0.5 rounded"
+                    >
+                      {fmt}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-sm font-semibold text-blue-600 group-hover:translate-x-1 transition-transform">
+                <span>Open Video Converter</span>
+                <span>→</span>
+              </div>
+            </Link>
+
+            {/* Image Tools Card */}
+            <Link
+              href="/image"
+              className="group bg-white rounded-xl border border-gray-200 p-6 hover:border-blue-500 hover:shadow-xl transition-all flex flex-col justify-between"
+            >
+              <div>
+                {/* Visual Header / Mockup */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-lg p-4 mb-5">
+                  <div className="flex items-center justify-between border-b border-emerald-200/60 pb-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-emerald-600" />
+                      <span className="text-xs font-semibold text-gray-900">Image Compressor</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-emerald-600 text-white px-2 py-0.5 rounded font-bold">
+                      Batch Processing
+                    </span>
+                  </div>
+
+                  {/* Feature Pills */}
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-emerald-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Formats:</span>
+                      <span className="text-emerald-700 font-semibold">WebP, PNG, JPG, AVIF</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-emerald-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Quality Slider:</span>
+                      <span className="text-blue-600 font-semibold font-mono">50% - 90% Compression</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-emerald-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Actions:</span>
+                      <span className="text-gray-900 font-medium">Convert All & Download All</span>
+                    </div>
+                  </div>
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors flex items-center gap-2">
+                  Image Tools
+                </h3>
+                <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                  Convert & compress batch images instantly to next-gen formats like WebP and AVIF for faster website load times without losing quality.
+                </p>
+
+                {/* Formats Badges */}
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {["PNG", "JPG", "WEBP", "AVIF", "GIF", "BMP", "TIFF"].map((fmt) => (
+                    <span
+                      key={fmt}
+                      className="text-[11px] font-mono bg-gray-100 text-gray-700 font-medium px-2 py-0.5 rounded"
+                    >
+                      {fmt}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-sm font-semibold text-blue-600 group-hover:translate-x-1 transition-transform">
+                <span>Open Image Converter</span>
+                <span>→</span>
+              </div>
+            </Link>
+
+            {/* Audio Tools Card */}
+            <Link
+              href="/audio"
+              className="group bg-white rounded-xl border border-gray-200 p-6 hover:border-blue-500 hover:shadow-xl transition-all flex flex-col justify-between"
+            >
+              <div>
+                {/* Visual Header / Mockup */}
+                <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-100 rounded-lg p-4 mb-5">
+                  <div className="flex items-center justify-between border-b border-purple-200/60 pb-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Music className="w-5 h-5 text-purple-600" />
+                      <span className="text-xs font-semibold text-gray-900">Audio Suite</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-purple-600 text-white px-2 py-0.5 rounded font-bold">
+                      WaveSurfer.js
+                    </span>
+                  </div>
+
+                  {/* Feature Pills */}
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-purple-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Waveform:</span>
+                      <span className="text-purple-700 font-semibold">Visual Region Trimmer</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-purple-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Volume Boost:</span>
+                      <span className="text-blue-600 font-semibold font-mono">25% - 200% Louder</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-purple-100 shadow-2xs">
+                      <span className="text-gray-600 font-medium">Quality & Channels:</span>
+                      <span className="text-gray-900 font-mono font-medium">320k, 48kHz, Stereo/Mono</span>
+                    </div>
+                  </div>
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors flex items-center gap-2">
+                  Audio Tools
+                </h3>
+                <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                  Trim audio with WaveSurfer.js interactive waveforms, boost volume up to 200%, convert MP3/WAV/FLAC, and customize sample rates and channels.
+                </p>
+
+                {/* Formats Badges */}
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {["MP3", "WAV", "AAC", "FLAC", "OGG", "M4A", "320k"].map((fmt) => (
+                    <span
+                      key={fmt}
+                      className="text-[11px] font-mono bg-gray-100 text-gray-700 font-medium px-2 py-0.5 rounded"
+                    >
+                      {fmt}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-sm font-semibold text-blue-600 group-hover:translate-x-1 transition-transform">
+                <span>Open Audio Converter</span>
+                <span>→</span>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works Section */}
+      <section id="how-it-works" className="bg-gray-50 py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4">
+            How it Works
+          </h2>
+          <p className="text-lg text-gray-600 text-center max-w-2xl mx-auto mb-12">
+            Simple, secure, and streamlined.
+          </p>
+          <div className="max-w-2xl mx-auto">
+            <div className="space-y-8">
+              <div className="flex gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Folder className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="w-0.5 h-16 bg-gray-300 mx-auto mt-2"></div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Select your file
+                  </h3>
+                  <p className="text-gray-600">
+                    Drag & drop any media file into the browser window. We support
+                    hundreds of formats.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <RefreshCw className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="w-0.5 h-16 bg-gray-300 mx-auto mt-2"></div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Process locally
+                  </h3>
+                  <p className="text-gray-600">
+                    The conversion engine runs entirely on your device using
+                    WebAssembly. No uploading needed.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Download className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Download instantly
+                  </h3>
+                  <p className="text-gray-600">
+                    Since the file is already on your computer, saving it is
+                    instant. No server wait times.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="text-center mt-12">
+              <button
+                onClick={() => router.push("/video")}
+                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+              >
+                Try it Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
-
-      <footer className="border-t border-gray-800 py-8">
+      <footer className="border-t border-gray-200 bg-white py-8">
         <div className="container mx-auto px-4">
-          {/* Grid layout for footer content */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Branding and description */}
-            <div className="mb-6 md:mb-0">
-              <div className="flex items-center gap-2 mb-3">
-                <div className=" rounded-full  flex items-center justify-center">
-                  <Image
-                    src="favicon.png"
-                    alt="logo"
-                    width={440}
-                    height={566}
-                    className="w-20  text-white"
-                  />
-                </div>
-              </div>
-              <p className="text-gray-400 text-sm">
-                Convert and compress your media files directly in your browser.
-                Fast, free, and private.
-              </p>
-            </div>
-
-            {/* Tools section */}
-            <div className="mb-6 md:mb-0">
-              <h3 className="font-semibold text-white mb-3">Tools</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link
-                    href="/video"
-                    className="text-gray-400 hover:text-white transition-colors text-sm"
-                  >
-                    Video Converter
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/image"
-                    className="text-gray-400 hover:text-white transition-colors text-sm"
-                  >
-                    Image Converter
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Social links */}
-            <div className="flex items-center justify-start md:justify-end gap-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <Link href="/" className="flex items-center gap-2">
+              <ConvertZoneLogo size={34} />
+              <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
+            </Link>
+            <nav className="flex items-center gap-6">
               <Link
-                href={process.env.GITHUB_PROFILE_URL || "https://github.com/"}
-                target="_blank"
-                className="text-gray-400 hover:text-white transition-colors"
+                href="/privacy"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
               >
-                <Github className="w-5 h-5" />
+                Privacy Policy
               </Link>
               <Link
-                href={
-                  process.env.LINKEDIN_PROFILE_URL || "https://linkedin.com"
-                }
-                target="_blank"
-                className="text-gray-400 hover:text-white transition-colors"
+                href="/terms"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
-                  <rect x="2" y="9" width="4" height="12"></rect>
-                  <circle cx="4" cy="4" r="2"></circle>
-                </svg>
+                Terms of Service
               </Link>
-            </div>
-          </div>
-
-          {/* Copyright text */}
-          <div className="border-t border-gray-800 mt-6 pt-6 text-center">
-            <p className="text-gray-400 text-sm">
+              <Link
+                href="/privacy"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              >
+                Contact
+              </Link>
+            </nav>
+            <p className="text-gray-500 text-sm">
               © {new Date().getFullYear()} ConvertZone. All rights reserved.
             </p>
           </div>

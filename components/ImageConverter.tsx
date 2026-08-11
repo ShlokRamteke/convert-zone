@@ -1,153 +1,195 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
+import { convertFile, formatFileSize } from "@/lib/ffmpeg-utils";
+import { createZipArchive } from "@/lib/zip-utils";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
-import { Upload, FileType, Settings } from "lucide-react";
+  Upload,
+  Check,
+  X,
+  Download,
+  Loader2,
+  CheckCircle2,
+  Zap,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const ffmpeg = new FFmpeg();
-
-// Updated image formats (removed SVG and AVIF)
 const IMAGE_FORMATS = ["jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff"];
 
+const QUALITY_PRESETS = [
+  { label: "High Quality", value: 90 },
+  { label: "Balanced", value: 70 },
+  { label: "Smaller File", value: 50 },
+];
+
+type FileStatus = "ready" | "converting" | "completed" | "error";
+
+interface FileWithStatus {
+  file: File;
+  status: FileStatus;
+  progress: number;
+  originalFormat: string;
+  targetFormat: string;
+  originalSize: number;
+  compressedSize?: number;
+  compressionPercent?: number;
+  downloadUrl?: string;
+  previewUrl: string;
+}
+
 export default function ImageConverter() {
-  const [loaded, setLoaded] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [progress, setProgress] = useState<number[]>([]);
+  const [files, setFiles] = useState<FileWithStatus[]>([]);
   const [converting, setConverting] = useState(false);
-  const [targetFormat, setTargetFormat] = useState("");
-  const [quality, setQuality] = useState(80);
+  const [targetFormat, setTargetFormat] = useState("webp");
+  const [quality, setQuality] = useState(70);
+  const [selectedPreset, setSelectedPreset] = useState("Balanced");
   const { toast } = useToast();
 
-  const ffmpegRef = useRef(new FFmpeg());
-
-  const load = async () => {
-    if (!loaded && typeof window !== "undefined") {
-      try {
-        const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
-        const ffmpeg = ffmpegRef.current;
-
-        // Only load if not already loaded
-        if (!ffmpeg.loaded) {
-          await ffmpeg.load({
-            coreURL: await toBlobURL(
-              `${baseURL}/ffmpeg-core.js`,
-              "text/javascript"
-            ),
-            wasmURL: await toBlobURL(
-              `${baseURL}/ffmpeg-core.wasm`,
-              "application/wasm"
-            ),
-          });
-        }
-
-        setLoaded(true);
-      } catch (error) {
-        console.error("Error loading FFmpeg:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load conversion tools. Please try again.",
-          variant: "destructive",
-        });
-      }
+  const getFileFormat = (filename: string): string => {
+    const parts = filename.split(".");
+    if (parts.length > 1) {
+      return parts[parts.length - 1].toUpperCase();
     }
+    return "";
   };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles?.length > 0) {
-      setFiles(acceptedFiles);
-      setProgress(new Array(acceptedFiles.length).fill(0));
-      setTargetFormat("jpg");
+    if (acceptedFiles.length > 0) {
+      const newFiles: FileWithStatus[] = acceptedFiles.map((file) => {
+        const previewUrl = URL.createObjectURL(file);
+        return {
+          file,
+          status: "ready" as FileStatus,
+          progress: 0,
+          originalFormat: getFileFormat(file.name),
+          targetFormat: targetFormat.toUpperCase(),
+          originalSize: file.size,
+          previewUrl,
+        };
+      });
+      setFiles((prev) => [...prev, ...newFiles]);
     }
-  }, []);
+  }, [targetFormat]);
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => {
+      const target = prev[index];
+      if (target) {
+        if (target.previewUrl) URL.revokeObjectURL(target.previewUrl);
+        if (target.downloadUrl) URL.revokeObjectURL(target.downloadUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       "image/*": IMAGE_FORMATS.map((format) => `.${format}`),
     },
-    maxFiles: 10, // Increase max files if needed
+    maxFiles: 20,
   });
 
-  const convert = async () => {
-    if (!files.length || !targetFormat) return;
+  const handlePresetChange = (presetLabel: string) => {
+    const hasCompleted = files.some(f => f.status === "completed");
+    if (hasCompleted) {
+      const confirm = window.confirm("Changing the quality will clear your currently converted files. Are you sure you want to proceed?");
+      if (!confirm) return;
+    }
+
+    setSelectedPreset(presetLabel);
+    const preset = QUALITY_PRESETS.find((p) => p.label === presetLabel);
+    if (preset) {
+      setQuality(preset.value);
+      setFiles((prev) =>
+        prev.map((f) => ({
+          ...f,
+          status: f.status === "completed" || f.status === "error" ? "ready" : f.status,
+          progress: 0,
+          downloadUrl: undefined,
+          compressedSize: undefined,
+          compressionPercent: undefined,
+        }))
+      );
+    }
+  };
+
+  const convertAll = async () => {
+    const readyFiles = files.filter((f) => f.status === "ready");
+    if (readyFiles.length === 0) {
+      toast({
+        title: "No files ready",
+        description: "Please add images to convert.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setConverting(true);
+
+    // Update all ready files to converting
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.status === "ready"
+          ? { ...f, status: "converting" as FileStatus, progress: 0 }
+          : f
+      )
+    );
 
     try {
-      await load();
-      setConverting(true);
-      const ffmpeg = ffmpegRef.current;
-      if (!ffmpeg.loaded) {
-        throw new Error("FFmpeg is not loaded");
-      }
-
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const outputName = `output_${i}.${targetFormat}`;
+        const fileWithStatus = files[i];
+        if (fileWithStatus.status !== "ready") continue;
 
-        const inputFileExtension = file.name.split(".").pop()?.toLowerCase();
-        if (inputFileExtension === targetFormat && quality === 80) {
-          toast({
-            title: "No Conversion Needed",
-            description: "The input file is already in the target format.",
+        const file = fileWithStatus.file;
+
+        try {
+          const result = await convertFile(file, targetFormat, {
+            quality,
+            onProgress: (prog) => {
+              setFiles((prev) => {
+                const newFiles = [...prev];
+                if (newFiles[i]) {
+                  newFiles[i] = { ...newFiles[i], progress: prog };
+                }
+                return newFiles;
+              });
+            },
           });
 
-          // Provide a download link for the original file
-          const url = URL.createObjectURL(file);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = file.name;
-          a.click();
-          URL.revokeObjectURL(url);
-          continue;
+          const compressionPercent =
+            ((fileWithStatus.originalSize - result.convertedSize) /
+              fileWithStatus.originalSize) *
+            100;
+
+          const url = URL.createObjectURL(result.blob);
+
+          setFiles((prev) => {
+            const newFiles = [...prev];
+            newFiles[i] = {
+              ...newFiles[i],
+              status: "completed" as FileStatus,
+              progress: 100,
+              compressedSize: result.convertedSize,
+              compressionPercent,
+              downloadUrl: url,
+            };
+            return newFiles;
+          });
+        } catch (error) {
+          console.error(`Error converting file ${file.name}:`, error);
+          setFiles((prev) => {
+            const newFiles = [...prev];
+            newFiles[i] = { ...newFiles[i], status: "error" as FileStatus };
+            return newFiles;
+          });
         }
-
-        ffmpeg.on("progress", ({ progress }) => {
-          setProgress((prev) => {
-            const newProgress = [...prev];
-            newProgress[i] = Math.round(progress * 100);
-            return newProgress;
-          });
-        });
-
-        const fileData = await fetchFile(file);
-        ffmpeg.writeFile(file.name, fileData);
-
-        await ffmpeg.exec([
-          "-i",
-          file.name,
-          "-q:v",
-          String(quality),
-          outputName,
-        ]);
-
-        const data = await ffmpeg.readFile(outputName);
-        const blob = new Blob([data], { type: `image/${targetFormat}` });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = outputName;
-        a.click();
-        URL.revokeObjectURL(url);
       }
 
       toast({
         title: "Success!",
-        description: "Your images have been converted successfully.",
+        description: `Converted ${readyFiles.length} image(s) successfully.`,
       });
     } catch (error) {
       console.error("Error during conversion:", error);
@@ -158,106 +200,268 @@ export default function ImageConverter() {
       });
     } finally {
       setConverting(false);
-      setProgress(new Array(files.length).fill(0));
     }
   };
 
+  const downloadAll = async () => {
+    const completedFiles = files.filter((f) => f.status === "completed" && f.downloadUrl);
+    if (completedFiles.length === 0) return;
+
+    if (completedFiles.length === 1) {
+      const single = completedFiles[0];
+      const a = document.createElement("a");
+      a.href = single.downloadUrl!;
+      a.download = `${single.file.name.split(".")[0]}.${targetFormat}`;
+      a.click();
+      return;
+    }
+
+    try {
+      const zipEntries = await Promise.all(
+        completedFiles.map(async (f) => {
+          const res = await fetch(f.downloadUrl!);
+          const blob = await res.blob();
+          const baseName = f.file.name.substring(0, f.file.name.lastIndexOf(".")) || f.file.name;
+          return {
+            name: `${baseName}.${targetFormat}`,
+            blob,
+          };
+        })
+      );
+
+      const zipBlob = await createZipArchive(zipEntries);
+      const zipUrl = URL.createObjectURL(zipBlob);
+
+      const a = document.createElement("a");
+      a.href = zipUrl;
+      a.download = `convertzone_images.zip`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(zipUrl), 10000);
+
+      toast({
+        title: "ZIP Archive Created!",
+        description: `Downloaded ${completedFiles.length} images in convertzone_images.zip`,
+      });
+    } catch (err) {
+      console.error("ZIP creation failed:", err);
+      completedFiles.forEach((fileWithStatus, index) => {
+        if (fileWithStatus.downloadUrl) {
+          setTimeout(() => {
+            const a = document.createElement("a");
+            a.href = fileWithStatus.downloadUrl!;
+            a.download = `${fileWithStatus.file.name.split(".")[0]}.${targetFormat}`;
+            a.click();
+          }, index * 300);
+        }
+      });
+    }
+  };
+
+  const completedCount = files.filter((f) => f.status === "completed").length;
+
   return (
-    <Card className="p-8 bg-gray-800/50 border-gray-700">
+    <div className="max-w-6xl mx-auto">
+      {/* Drag and Drop Area */}
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all mb-6 ${
           isDragActive
-            ? "border-blue-500 bg-blue-500/10"
-            : "border-gray-600 hover:border-gray-500"
+            ? "border-blue-500 bg-blue-50"
+            : "border-gray-300 bg-gray-50 hover:border-blue-400"
         }`}
       >
         <input {...getInputProps()} />
-        <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <p className="text-gray-300">
-          {isDragActive
-            ? "Drop your images here..."
-            : "Drag & drop your images here, or click to select"}
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          Supported formats: {IMAGE_FORMATS.join(", ")}
-        </p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+            <Upload className="w-8 h-8 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-lg font-semibold text-gray-900 mb-2">
+              Drag images here or click to browse
+            </p>
+            <p className="text-sm text-gray-500">Supports JPG, PNG, WEBP, AVIF</p>
+          </div>
+        </div>
       </div>
 
+      {/* Conversion Settings Bar */}
       {files.length > 0 && (
-        <div className="mt-8 space-y-6">
-          {files.map((file, index) => (
-            <div key={index} className="space-y-4">
-              <div className="flex items-center gap-4">
-                <FileType className="h-8 w-8 text-blue-400" />
-                <div>
-                  <p className="font-medium text-gray-200">{file.name}</p>
-                  <p className="text-sm text-gray-400">
-                    {(file.size / (1024 * 1024)).toFixed(2)} MB
-                  </p>
-                </div>
-              </div>
-
-              <img
-                src={URL.createObjectURL(file)}
-                alt="Preview"
-                className="w-full rounded-lg"
-              />
-
-              {converting && (
-                <div className="space-y-2">
-                  <Progress value={progress[index]} />
-                  <p className="text-sm text-center text-gray-400">
-                    Converting... {progress[index]}%
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
-
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="format" className="text-white">
-                Target Format
-              </Label>
-              <Select value={targetFormat} onValueChange={setTargetFormat}>
-                <SelectTrigger id="format">
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Convert to:</label>
+                <select
+                  value={targetFormat}
+                  onChange={(e) => {
+                    const newFormat = e.target.value;
+                    const hasCompleted = files.some(f => f.status === "completed");
+                    
+                    if (hasCompleted) {
+                      const confirm = window.confirm("Changing the format will clear your currently converted files. Are you sure you want to proceed?");
+                      if (!confirm) return;
+                    }
+                    
+                    setTargetFormat(newFormat);
+                    setFiles((prev) =>
+                      prev.map((f) => ({
+                        ...f,
+                        targetFormat: newFormat.toUpperCase(),
+                        status: f.status === "completed" || f.status === "error" ? "ready" : f.status,
+                        progress: 0,
+                        downloadUrl: undefined,
+                        compressedSize: undefined,
+                        compressionPercent: undefined,
+                      }))
+                    );
+                  }}
+                  className="border border-gray-300 rounded px-3 py-1.5 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
                   {IMAGE_FORMATS.map((format) => (
-                    <SelectItem key={format} value={format}>
+                    <option key={format} value={format}>
                       {format.toUpperCase()}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectContent>
-              </Select>
+                </select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label className="text-white">Quality</Label>
-                <span className="text-sm text-gray-400">{quality}%</span>
-              </div>
-              <Slider
-                value={[quality]}
-                onValueChange={(value) => setQuality(value[0])}
-                max={100}
-                step={1}
-              />
+            <div className="flex items-center gap-2">
+              {QUALITY_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() => handlePresetChange(preset.label)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    selectedPreset === preset.label
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={convertAll}
+                disabled={converting || !files.some((f) => f.status === "ready")}
+                className={`flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors ${
+                  converting || !files.some((f) => f.status === "ready")
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                <Zap className="w-4 h-4" />
+                {converting ? "Converting..." : "Convert All"}
+              </button>
+
+              <button
+                onClick={downloadAll}
+                disabled={completedCount === 0}
+                className={`flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors ${
+                  completedCount === 0 ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <Download className="w-4 h-4" />
+                Download All ({completedCount})
+              </button>
             </div>
           </div>
-
-          <Button
-            onClick={convert}
-            className="w-full"
-            disabled={!targetFormat || converting}
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            Convert All
-          </Button>
         </div>
       )}
-    </Card>
+
+      {/* Image Cards Grid */}
+      {files.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {files.map((fileWithStatus, index) => (
+            <div
+              key={index}
+              className="bg-white border border-gray-200 rounded-lg overflow-hidden relative"
+            >
+              {/* Image Thumbnail */}
+              <div className="relative aspect-square bg-gray-100">
+                <img
+                  src={fileWithStatus.previewUrl}
+                  alt={fileWithStatus.file.name}
+                  className="w-full h-full object-cover"
+                />
+                {fileWithStatus.status === "converting" && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  </div>
+                )}
+                {fileWithStatus.status === "completed" && (
+                  <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                )}
+                {/* Remove Button */}
+                {fileWithStatus.status !== "converting" && (
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="absolute top-2 right-2 bg-white/90 hover:bg-white rounded-full p-1 transition-colors shadow-sm"
+                  >
+                    <X className="w-4 h-4 text-gray-600" />
+                  </button>
+                )}
+              </div>
+
+              {/* File Info */}
+              <div className="p-3 space-y-2">
+                {/* Format Label */}
+                <div className="inline-block bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
+                  {fileWithStatus.originalFormat} → {fileWithStatus.targetFormat}
+                </div>
+
+                {/* Filename */}
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {fileWithStatus.file.name}
+                </p>
+
+                {/* Status and Progress */}
+                {fileWithStatus.status === "converting" && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500">Processing...</p>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-600 h-1.5 rounded-full transition-all"
+                        style={{ width: `${fileWithStatus.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* File Sizes */}
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500">
+                    {formatFileSize(fileWithStatus.originalSize)}
+                  </p>
+                  {fileWithStatus.status === "completed" && fileWithStatus.compressedSize && (
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs font-medium text-green-600">
+                        {formatFileSize(fileWithStatus.compressedSize)}
+                      </p>
+                      {fileWithStatus.compressionPercent !== undefined && (
+                        <p className="text-xs font-medium text-green-600">
+                          ({fileWithStatus.compressionPercent > 0 ? "-" : "+"}
+                          {Math.abs(fileWithStatus.compressionPercent).toFixed(0)}%)
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {fileWithStatus.status === "converting" && (
+                    <p className="text-xs text-gray-400">
+                      ~{formatFileSize((fileWithStatus.originalSize * 0.3) | 0)}
+                    </p>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

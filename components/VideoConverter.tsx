@@ -2,55 +2,39 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
+import { convertFile, formatFileSize, RESOLUTION_PRESETS } from "@/lib/ffmpeg-utils";
+import VideoTimelineTrimmer from "./VideoTimelineTrimmer";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
-import { Upload, FileType, Settings, Twitter, Phone } from "lucide-react";
+  Play,
+  FileVideo,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  Upload,
+  Volume2,
+  VolumeX,
+  Scissors,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import RangeSlider from "react-range-slider-input";
-import "react-range-slider-input/dist/style.css";
-import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox for audio removal
 
-// Constants for supported formats and presets
-const VIDEO_FORMATS = [
-  "mp4",
-  "webm",
-  "mov",
-  "avi",
-  "mkv",
-  "gif",
-  "mpeg",
-  "flv",
+const VIDEO_FORMATS = ["mp4", "webm", "gif"];
+
+const RESOLUTIONS = [
+  { value: "original", label: "Original" },
+  { value: "4k", label: "4K UHD (3840x2160)" },
+  { value: "1080p", label: "1080p (Full HD)" },
+  { value: "720p", label: "720p (HD)" },
+  { value: "480p", label: "480p (SD)" },
+  { value: "360p", label: "360p (Low)" },
 ];
-const PRESETS = {
-  twitter: {
-    maxBitrate: "5M",
-    maxDuration: 140,
-    format: "mp4",
-    resolution: "1280x720",
-  },
-  whatsapp: {
-    maxBitrate: "3M",
-    maxDuration: 30,
-    format: "mp4",
-    resolution: "848x480",
-  },
-} as const;
 
-type PresetKey = keyof typeof PRESETS;
+const FPS_OPTIONS = [
+  { value: 0, label: "Original" },
+  { value: 24, label: "24 fps" },
+  { value: 30, label: "30 fps" },
+  { value: 60, label: "60 fps" },
+];
 
-// Helper function to format seconds into HH:MM:SS
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -60,251 +44,243 @@ function formatTime(seconds: number): string {
     .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
+function parseTimeToSeconds(timeString: string): number {
+  const parts = timeString.split(":").map(Number);
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
+}
+
+/**
+ * Extracts the frame rate (FPS) from an MP4/MOV file header using binary inspection.
+ */
+async function parseMp4Fps(file: File): Promise<number | null> {
+  try {
+    // Read the first 1MB of the file (usually contains headers)
+    const headerSize = Math.min(file.size, 1024 * 1024);
+    const buffer = await file.slice(0, headerSize).arrayBuffer();
+    const view = new DataView(buffer);
+    const bytes = new Uint8Array(buffer);
+
+    // Helper to find box offset by ASCII name
+    const findBox = (name: string, start = 0): number => {
+      const nameBytes = new TextEncoder().encode(name);
+      for (let i = start; i < bytes.length - 8; i++) {
+        if (
+          bytes[i] === nameBytes[0] &&
+          bytes[i + 1] === nameBytes[1] &&
+          bytes[i + 2] === nameBytes[2] &&
+          bytes[i + 3] === nameBytes[3]
+        ) {
+          const size = view.getUint32(i - 4);
+          if (size > 0 && i - 4 + size <= file.size) {
+            return i - 4;
+          }
+        }
+      }
+      return -1;
+    };
+
+    // Find mdhd to get timescale
+    const mdhdOffset = findBox("mdhd");
+    if (mdhdOffset === -1) return null;
+
+    const version = view.getUint8(mdhdOffset + 8);
+    let timescale = 0;
+    if (version === 0) {
+      timescale = view.getUint32(mdhdOffset + 20);
+    } else {
+      timescale = view.getUint32(mdhdOffset + 28);
+    }
+
+    // Find stts to get sample delta
+    const sttsOffset = findBox("stts");
+    if (sttsOffset === -1) return null;
+
+    const entryCount = view.getUint32(sttsOffset + 12);
+    if (entryCount === 0) return null;
+
+    const sampleDelta = view.getUint32(sttsOffset + 20);
+
+    if (sampleDelta > 0 && timescale > 0) {
+      const fps = Math.round(timescale / sampleDelta);
+      if (fps > 0 && fps < 1000) {
+        return fps;
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to parse MP4 FPS:", e);
+  }
+  return null;
+}
+
 export default function VideoConverter() {
-  // State variables
-  const [loaded, setLoaded] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [converting, setConverting] = useState(false);
+  const [hasConverted, setHasConverted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [targetFormat, setTargetFormat] = useState("mp4");
-  const [quality, setQuality] = useState(80);
+  const [resolution, setResolution] = useState("original");
+  const [quality, setQuality] = useState(50);
+  const [fps, setFps] = useState(0);
+  const [removeAudio, setRemoveAudio] = useState(false);
+  const [trimEnabled, setTrimEnabled] = useState(false);
   const [startTime, setStartTime] = useState("00:00:00");
-  const [duration, setDuration] = useState("00:00:30");
-  const [preset, setPreset] = useState<string>("");
-  const [videoDuration, setVideoDuration] = useState(0);
-  const [trimRange, setTrimRange] = useState<[number, number]>([0, 30]);
-  const [removeAudio, setRemoveAudio] = useState(false); // State for audio removal
-
-  // Refs
+  const [endTime, setEndTime] = useState("00:00:30");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [videoMetadata, setVideoMetadata] = useState<{
+    width?: number;
+    height?: number;
+    fps?: number;
+    duration?: number;
+  }>({});
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const ffmpegRef = useRef(new FFmpeg());
-
-  // Hooks
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Generate video thumbnails for the timeline
-  const generateThumbnails = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    // Wait until video metadata is loaded
-    if (video.readyState === 0) {
-      await new Promise<void>((resolve) => {
-        video.onloadedmetadata = () => resolve();
-      });
-    }
-
-    const videoDur = video.duration;
-    const width = canvas.width;
-    const height = canvas.height;
-    const thumbnailCount = 10;
-    const interval = videoDur / thumbnailCount;
-
-    // Clear the canvas before drawing new thumbnails
-    context.clearRect(0, 0, width, height);
-
-    for (let i = 0; i < thumbnailCount; i++) {
-      video.currentTime = i * interval;
-      await new Promise<void>((resolve) => {
-        const onSeeked = () => {
-          context.drawImage(
-            video,
-            i * (width / thumbnailCount),
-            0,
-            width / thumbnailCount,
-            height
-          );
-          video.removeEventListener("seeked", onSeeked);
-          resolve();
-        };
-        video.addEventListener("seeked", onSeeked);
-      });
-    }
-  }, []);
-
-  // Initialize video and update duration when file changes
   useEffect(() => {
-    if (!file || !videoRef.current) return;
-
-    const handleMetadata = () => {
-      if (videoRef.current) {
-        const duration = Math.floor(videoRef.current.duration);
-        setVideoDuration(duration);
-        setTrimRange([0, Math.min(duration, 30)]); // Default to first 30s or full duration if shorter
-      }
-    };
-
-    videoRef.current.src = URL.createObjectURL(file);
-    videoRef.current.onloadedmetadata = handleMetadata;
-
     return () => {
-      if (videoRef.current) {
-        videoRef.current.onloadedmetadata = null;
+      if (videoUrl) {
+        URL.revokeObjectURL(videoUrl);
       }
     };
-  }, [file]);
+  }, [videoUrl]);
 
-  // Generate thumbnails when video is loaded
   useEffect(() => {
-    if (file && videoRef.current && videoRef.current.readyState >= 1) {
-      generateThumbnails();
-    }
-  }, [file, generateThumbnails]);
-
-  // Update start time and duration when trim range changes
-  useEffect(() => {
-    setStartTime(formatTime(trimRange[0]));
-    setDuration(formatTime(trimRange[1] - trimRange[0]));
-  }, [trimRange]);
-
-  // Load FFmpeg
-  const load = async () => {
-    if (!loaded && typeof window !== "undefined") {
-      try {
-        const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
-        const ffmpeg = ffmpegRef.current;
-
-        // Only load if not already loaded
-        if (!ffmpeg.loaded) {
-          await ffmpeg.load({
-            coreURL: await toBlobURL(
-              `${baseURL}/ffmpeg-core.js`,
-              "text/javascript"
-            ),
-            wasmURL: await toBlobURL(
-              `${baseURL}/ffmpeg-core.wasm`,
-              "application/wasm"
-            ),
-          });
-        }
-
-        setLoaded(true);
-      } catch (error) {
-        console.error("Error loading FFmpeg:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load conversion tools. Please try again.",
-          variant: "destructive",
-        });
+    if (videoMetadata.duration) {
+      const maxDuration = formatTime(videoMetadata.duration);
+      if (endTime > maxDuration) {
+        setEndTime(maxDuration);
       }
     }
-  };
+  }, [videoMetadata.duration, endTime]);
 
-  // Handle file drop
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles?.length > 0) {
-      const file = acceptedFiles[0];
-      setFile(file);
-      setTargetFormat("mp4"); // Reset to default format
-      setPreset(""); // Clear any preset
+    if (acceptedFiles.length > 0) {
+      const selectedFile = acceptedFiles[0];
+      setFile(selectedFile);
+      
+      // Reset metadata and settings for new file
+      setVideoMetadata({});
+      setTrimEnabled(false);
+      setStartTime("00:00:00");
+      setEndTime("00:00:30");
+      
+      const url = URL.createObjectURL(selectedFile);
+      setVideoUrl(url);
+
+      // Load video metadata
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.src = url;
+      
+      video.onloadedmetadata = async () => {
+        const duration = Math.floor(video.duration);
+        const parsedFps = await parseMp4Fps(selectedFile);
+        setVideoMetadata({
+          width: video.videoWidth,
+          height: video.videoHeight,
+          fps: parsedFps || 30,
+          duration: duration,
+        });
+        // Set default end time to 30 seconds or video duration, whichever is smaller
+        const defaultEnd = Math.min(30, duration);
+        setEndTime(formatTime(defaultEnd));
+      };
+
+      video.onerror = () => {
+        // Clear metadata to avoid displaying stale data from previous files
+        setVideoMetadata({});
+        toast({
+          title: "Preview Unavailable",
+          description: "This browser cannot preview this video format natively (such as WebM or MKV on some browsers), but you can still proceed to convert it.",
+        });
+      };
     }
-  }, []);
+  }, [toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      "video/*": VIDEO_FORMATS.map((format) => `.${format}`),
-    },
+    accept: { "video/*": [] },
     maxFiles: 1,
+    noClick: true,
   });
 
-  // Apply preset settings
-  const applyPreset = (presetName: PresetKey) => {
-    setPreset(presetName);
-    setTargetFormat(PRESETS[presetName].format);
-    setQuality(80); // Reset quality to default
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
   };
 
-  // Convert video
   const convert = async () => {
-    if (!file || !targetFormat) return;
+    if (!file) return;
 
     try {
-      await load();
       setConverting(true);
       setProgress(0);
 
-      const ffmpeg = ffmpegRef.current;
-      const outputName = `output.${targetFormat}`;
+      // Build resolution options
+      const resolutionOptions =
+        resolution === "original"
+          ? {}
+          : {
+              resolution:
+                resolution as keyof typeof RESOLUTION_PRESETS,
+            };
 
-      // Set up progress handler
-      ffmpeg.on("progress", ({ progress }) => {
-        setProgress(Math.round(progress * 100));
-      });
+      // Build conversion options
+      const conversionOptions: any = {
+        quality,
+        preset: "ultrafast",
+        ...resolutionOptions,
+        onProgress: (prog: number) => {
+          setProgress(prog);
+        },
+      };
 
-      // Write input file to FFmpeg virtual filesystem
-      const fileData = await fetchFile(file);
-      await ffmpeg.writeFile(file.name, fileData);
-
-      // Build command
-      let command = ["-i", file.name];
-
-      // Add trim options if needed
-      if (trimRange[0] > 0 || trimRange[1] < videoDuration) {
-        command.push("-ss", startTime, "-t", duration);
+      // Add frame rate if not original
+      if (fps > 0) {
+        conversionOptions.fps = fps;
       }
 
-      // Add preset-specific settings
-      if (preset && preset in PRESETS) {
-        const presetConfig = PRESETS[preset as PresetKey];
-        command.push(
-          "-b:v",
-          presetConfig.maxBitrate,
-          "-vf",
-          `scale=${presetConfig.resolution}`,
-          "-maxrate",
-          presetConfig.maxBitrate,
-          "-bufsize",
-          presetConfig.maxBitrate
-        );
-      } else {
-        // Use quality setting instead
-        command.push(
-          "-c:v",
-          "libx264",
-          "-crf",
-          String(Math.round((100 - quality) / 2))
-        );
-      }
-
-      // Remove audio if the option is enabled
+      // Add audio removal
       if (removeAudio) {
-        command.push("-an"); // -an flag removes audio
+        conversionOptions.removeAudio = true;
       }
 
-      // Add output file
-      command.push("-y", outputName); // Added -y to overwrite without asking
+      // Add trimming
+      if (trimEnabled) {
+        const startSeconds = parseTimeToSeconds(startTime);
+        const endSeconds = parseTimeToSeconds(endTime);
+        const duration = endSeconds - startSeconds;
+        
+        if (duration > 0) {
+          conversionOptions.startTime = startTime;
+          conversionOptions.duration = formatTime(duration);
+        }
+      }
 
-      // Execute FFmpeg command
-      await ffmpeg.exec(command);
+      const result = await convertFile(file, targetFormat, conversionOptions);
 
-      // Read and download output file
-      const data = await ffmpeg.readFile(outputName);
-      const blob = new Blob([data], { type: `video/${targetFormat}` });
-      const url = URL.createObjectURL(blob);
-
+      // Auto-download
+      const url = URL.createObjectURL(result.blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `converted_${file.name.split(".")[0]}.${targetFormat}`;
+      a.download = result.filename;
       a.click();
-
-      // Clean up
       URL.revokeObjectURL(url);
 
       toast({
         title: "Success!",
         description: "Your video has been converted successfully.",
       });
-    } catch (error) {
+      setHasConverted(true);
+    } catch (error: any) {
       console.error("Error during conversion:", error);
       toast({
-        title: "Error",
-        description: "Failed to convert video. Please try again.",
+        title: "Error during conversion",
+        description: error?.message || String(error) || "Failed to convert video. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -313,196 +289,327 @@ export default function VideoConverter() {
     }
   };
 
-  // Handle trim range change
-  const handleRangeChange = (values: [number, number]) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = values[0];
-      setTrimRange(values);
+  const getQualityLabel = () => {
+    if (quality <= 30) return "Small Size";
+    if (quality <= 60) return "Medium (Balanced)";
+    return "High Quality ↑";
+  };
+
+  const handleSettingChange = (action: () => void) => {
+    if (hasConverted) {
+      const confirm = window.confirm("Changing settings will clear your currently converted video state. Are you sure you want to proceed?");
+      if (!confirm) return;
+      setHasConverted(false);
+    }
+    action();
+  };
+
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    const startSeconds = parseTimeToSeconds(value);
+    const endSeconds = parseTimeToSeconds(endTime);
+    if (startSeconds >= endSeconds && videoMetadata.duration) {
+      const newEnd = Math.min(startSeconds + 30, videoMetadata.duration);
+      setEndTime(formatTime(newEnd));
     }
   };
 
+  const handleEndTimeChange = (value: string) => {
+    const startSeconds = parseTimeToSeconds(startTime);
+    const endSeconds = parseTimeToSeconds(value);
+    if (endSeconds <= startSeconds) {
+      toast({
+        title: "Invalid time range",
+        description: "End time must be after start time.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEndTime(value);
+  };
+
   return (
-    <Card className="p-8 bg-gray-800/50 border-gray-700">
-      {/* File Drop Zone */}
-      <div
-        {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-          isDragActive
-            ? "border-blue-500 bg-blue-500/10"
-            : "border-gray-600 hover:border-gray-500"
-        }`}
-      >
-        <input {...getInputProps()} />
-        <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <p className="text-gray-300">
-          {isDragActive
-            ? "Drop your video here..."
-            : "Drag & drop your video here, or click to select"}
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          Supported formats: {VIDEO_FORMATS.join(", ")}
-        </p>
-      </div>
-
-      {/* Video Editor (only visible when file is selected) */}
-      {file && (
-        <div className="mt-8 space-y-6">
-          {/* File info */}
-          <div className="flex items-center gap-4">
-            <FileType className="h-8 w-8 text-blue-400" />
-            <div>
-              <p className="font-medium text-gray-200">{file.name}</p>
-              <p className="text-sm text-gray-400">
-                {(file.size / (1024 * 1024)).toFixed(2)} MB
-              </p>
-            </div>
-          </div>
-
-          {/* Video preview */}
-          <video
-            ref={videoRef}
-            className="w-full rounded-lg"
-            controls
-            preload="metadata"
-          />
-
-          {/* Thumbnail timeline and trim controls */}
-          <div className="space-y-4">
-            <canvas
-              ref={canvasRef}
-              className="w-full h-16 rounded bg-gray-900"
-              width={600}
-              height={64}
-            />
-
-            <div className="px-2">
-              <RangeSlider
-                className="trim-slider"
-                min={0}
-                max={videoDuration || 100}
-                step={1}
-                value={trimRange}
-                onInput={handleRangeChange}
-              />
-              <div className="flex justify-between text-sm text-gray-400 mt-1">
-                <span>{formatTime(trimRange[0])}</span>
-                <span>{formatTime(trimRange[1])}</span>
+    <div {...getRootProps()} className="max-w-7xl mx-auto">
+      <input {...getInputProps()} ref={fileInputRef} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Video Preview & Timeline Trimmer */}
+        <div className="lg:col-span-2 space-y-6">
+          {file && videoUrl ? (
+            <>
+              {/* Video Player */}
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="relative aspect-video bg-gray-900">
+                  <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    className="w-full h-full object-contain"
+                    controls
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
+                  />
+                  {!isPlaying && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center shadow-lg transition-opacity duration-300">
+                        <Play className="w-8 h-8 text-blue-600 ml-1" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Preset buttons */}
-          <div className="flex gap-4">
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={() => applyPreset("twitter")}
-            >
-              <Twitter className="w-4 h-4" />
-              Twitter Preset
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={() => applyPreset("whatsapp")}
-            >
-              <Phone className="w-4 h-4" />
-              WhatsApp Preset
-            </Button>
-          </div>
-
-          {/* Format and quality controls */}
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="format" className="text-white">
-                Target Format
-              </Label>
-              <Select value={targetFormat} onValueChange={setTargetFormat}>
-                <SelectTrigger id="format">
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
-                  {VIDEO_FORMATS.map((format) => (
-                    <SelectItem key={format} value={format}>
-                      {format.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label className="text-white">Quality</Label>
-                <span className="text-sm text-gray-400">{quality}%</span>
+              {/* File Details */}
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileVideo className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                        {videoMetadata.width && videoMetadata.height && (
+                          <>
+                            <span>
+                              {videoMetadata.width}x{videoMetadata.height}
+                            </span>
+                            <span>•</span>
+                          </>
+                        )}
+                        {videoMetadata.fps && (
+                          <>
+                            <span>{videoMetadata.fps}fps</span>
+                            <span>•</span>
+                          </>
+                        )}
+                        {videoMetadata.duration && (
+                          <>
+                            <span>{formatTime(videoMetadata.duration)}</span>
+                            <span>•</span>
+                          </>
+                        )}
+                        <span>{formatFileSize(file.size)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFileSelect}
+                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Change File
+                  </button>
+                </div>
               </div>
-              <Slider
-                value={[quality]}
-                onValueChange={(value) => setQuality(value[0])}
-                max={100}
-                step={1}
-                className="trim-slider"
-              />
-            </div>
 
-            {/* Audio removal checkbox */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="remove-audio"
-                checked={removeAudio}
-                onCheckedChange={(checked) => setRemoveAudio(!!checked)}
-                className="border-white"
-              />
-              <Label htmlFor="remove-audio" className="text-white">
-                Remove Audio
-              </Label>
-            </div>
-          </div>
-
-          {/* Convert button or progress bar */}
-          {converting ? (
-            <div className="space-y-2">
-              <Progress value={progress} />
-              <p className="text-sm text-center text-gray-400">
-                Converting... {progress}%
-              </p>
-            </div>
+              {/* Visual Video Timeline Trimmer */}
+              {videoMetadata.duration && (
+                <div>
+                  <VideoTimelineTrimmer
+                    videoRef={videoRef as React.RefObject<HTMLVideoElement>}
+                    duration={videoMetadata.duration}
+                    onTrimChange={(start, end) => {
+                      setTrimEnabled(true);
+                      setStartTime(start);
+                      setEndTime(end);
+                    }}
+                  />
+                </div>
+              )}
+            </>
           ) : (
-            <Button
-              onClick={convert}
-              className="w-full"
-              disabled={!file || !targetFormat || converting}
+            /* Upload Card when No Video Selected */
+            <div
+              className={`bg-white rounded-lg border-2 border-dashed p-12 text-center cursor-pointer transition-all ${
+                isDragActive
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-300 hover:border-blue-400"
+              }`}
             >
-              <Settings className="mr-2 h-4 w-4" />
-              Convert
-            </Button>
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Upload className="w-8 h-8 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-gray-900 mb-1">
+                    Drop MP4, MOV, or WebM video file here
+                  </p>
+                  <p className="text-sm text-gray-500">or click to browse your computer</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFileSelect}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Select Video
+                </button>
+              </div>
+            </div>
           )}
         </div>
-      )}
 
-      {/* Slider styles */}
-      <style jsx global>{`
-        .trim-slider {
-          height: 8px;
-          background: #374151;
-          border-radius: 4px;
-        }
-        .trim-slider .range-slider__range {
-          background: #3b82f6;
-          border-radius: 4px;
-        }
-        .trim-slider .range-slider__thumb {
-          width: 16px;
-          height: 16px;
-          background: #60a5fa;
-          border: 2px solid #3b82f6;
-          border-radius: 50%;
-          cursor: grab;
-        }
-        .trim-slider .range-slider__thumb:hover {
-          background: #93c5fd;
-        }
-      `}</style>
-    </Card>
+        {/* Right Column: Conversion Settings */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Settings className="w-5 h-5 text-gray-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Conversion Settings</h2>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">Customize your output options</p>
+
+            {/* Output Format */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Output Format
+              </label>
+              <div className="flex gap-2">
+                {VIDEO_FORMATS.map((format) => (
+                  <button
+                    key={format}
+                    onClick={() => handleSettingChange(() => setTargetFormat(format))}
+                    className={`flex-1 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      targetFormat === format
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {format.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Resolution */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Resolution
+              </label>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {RESOLUTIONS.map((res) => (
+                  <button
+                    key={res.value}
+                    onClick={() => handleSettingChange(() => setResolution(res.value))}
+                    className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-colors ${
+                      resolution === res.value
+                        ? "border-2 border-blue-600 text-blue-600 bg-blue-50"
+                        : "border border-gray-200 text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    {res.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quality */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Quality
+              </label>
+              <p className="text-xs text-gray-500 mb-3">{getQualityLabel()}</p>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={quality}
+                onChange={(e) => handleSettingChange(() => setQuality(Number(e.target.value)))}
+                style={{
+                  background: `linear-gradient(to right, #2563eb 0%, #2563eb ${quality}%, #e5e7eb ${quality}%, #e5e7eb 100%)`,
+                }}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-2">
+                <span>Small Size</span>
+                <span>High Quality ↑</span>
+              </div>
+            </div>
+
+            {/* Advanced Options */}
+            <div className="mb-6">
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-700">Advanced Options</span>
+                </div>
+                {showAdvanced ? (
+                  <ChevronUp className="w-4 h-4 text-gray-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+              {showAdvanced && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
+                  {/* Frame Rate */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Frame Rate
+                    </label>
+                    <select
+                      value={fps}
+                      onChange={(e) => handleSettingChange(() => setFps(Number(e.target.value)))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {FPS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Audio Removal */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {removeAudio ? (
+                        <VolumeX className="w-4 h-4 text-gray-600" />
+                      ) : (
+                        <Volume2 className="w-4 h-4 text-gray-600" />
+                      )}
+                      <span className="text-sm font-medium text-gray-700">Remove Audio</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSettingChange(() => setRemoveAudio(!removeAudio))}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${
+                        removeAudio ? "bg-blue-600" : "bg-gray-300"
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                          removeAudio ? "translate-x-6" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Convert Button */}
+            <button
+              onClick={convert}
+              disabled={!file || converting}
+              className={`w-full bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors ${
+                !file || converting ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              {converting ? `Converting... ${progress}%` : "Convert Now"}
+            </button>
+
+            {converting && (
+              <div className="mt-4">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
