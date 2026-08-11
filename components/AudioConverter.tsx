@@ -3,6 +3,8 @@
 import { useCallback, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { convertAudio } from "@/lib/ffmpeg-utils";
+import { Upload, Zap, X, Check, Loader2, FileAudio, Download, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const AUDIO_FORMATS = [
   { value: "mp3", label: "MP3 Audio" },
