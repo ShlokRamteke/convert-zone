@@ -76,7 +76,7 @@ export default function TermsPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-bold text-gray-900">6. Contact Information</h2>
           <p className="text-gray-600 leading-relaxed text-sm">
-            If you have questions regarding these terms, please contact us at <a href="mailto:support@convertzone.app" className="text-blue-600 underline">support@convertzone.app</a>.
+            If you have questions regarding these terms, please contact us through our official support channels.
           </p>
         </section>
       </main>

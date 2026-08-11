@@ -73,7 +73,7 @@ export default function PrivacyPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-bold text-gray-900">4. Contact Us</h2>
           <p className="text-gray-600 leading-relaxed text-sm">
-            If you have questions about our privacy policy or data handling practices, reach out to <a href="mailto:privacy@convertzone.app" className="text-blue-600 underline">privacy@convertzone.app</a>.
+            If you have questions about our privacy policy or data handling practices, please contact our support team.
           </p>
         </section>
       </main>
