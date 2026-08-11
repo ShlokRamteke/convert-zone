@@ -73,7 +73,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const gaId = process.env.NEXT_PUBLIC_GA_ID || "G-CONVERTZONE";
+  const gaId = process.env.NEXT_PUBLIC_GA_ID || "G-CWF5MYQF6J";
   const clarityId = process.env.NEXT_PUBLIC_CLARITY_ID || "cz_clarity_2026";
 
   return (
