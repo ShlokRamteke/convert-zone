@@ -16,6 +16,9 @@ import {
   Play,
   CloudOff,
   CheckCircle2,
+  X,
+  Cpu,
+  FileCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -23,6 +26,7 @@ export default function Home() {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(67);
+  const [showDemoModal, setShowDemoModal] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -113,10 +117,6 @@ export default function Home() {
                 className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
               >
                 Start Converting Now
-              </button>
-              <button className="border border-gray-300 text-gray-700 px-6 py-3 rounded-md font-medium hover:bg-gray-50 transition-colors flex items-center gap-2">
-                <Play className="w-4 h-4" />
-                Watch Demo
               </button>
             </div>
             <div className="flex items-center gap-6">
