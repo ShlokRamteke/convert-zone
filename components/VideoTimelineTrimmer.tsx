@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Scissors, RotateCcw, Play, Pause } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Scissors, RotateCcw, Play, Pause, Bookmark, Flag } from "lucide-react";
 
 interface VideoTimelineTrimmerProps {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -32,10 +32,13 @@ export default function VideoTimelineTrimmer({
   duration,
   onTrimChange,
 }: VideoTimelineTrimmerProps) {
+  const trackRef = useRef<HTMLDivElement>(null);
   const [startSec, setStartSec] = useState(0);
   const [endSec, setEndSec] = useState(Math.min(duration, 30));
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [draggingHandle, setDraggingHandle] = useState<"start" | "end" | "playhead" | "clip" | null>(null);
+  const dragOffsetRef = useRef(0);
 
   useEffect(() => {
     const defaultEnd = Math.min(duration, 30);
@@ -44,13 +47,14 @@ export default function VideoTimelineTrimmer({
     onTrimChange(formatTimeHHMMSS(0), formatTimeHHMMSS(defaultEnd));
   }, [duration]);
 
+  // Sync video timeupdate
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
-      if (video.currentTime >= endSec) {
+      if (video.currentTime >= endSec && !video.paused) {
         video.pause();
         video.currentTime = startSec;
         setIsPlaying(false);
@@ -71,17 +75,82 @@ export default function VideoTimelineTrimmer({
     };
   }, [videoRef, startSec, endSec]);
 
-  const handleStartChange = (val: number) => {
-    const clamped = Math.min(val, endSec - 1);
-    setStartSec(clamped);
+  // Convert mouse X to time in seconds
+  const getTimeFromMouse = useCallback(
+    (clientX: number): number => {
+      if (!trackRef.current || duration <= 0) return 0;
+      const rect = trackRef.current.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      return pct * duration;
+    },
+    [duration]
+  );
+
+  // Mouse Drag Logic
+  useEffect(() => {
+    if (!draggingHandle) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const mouseSec = getTimeFromMouse(e.clientX);
+
+      if (draggingHandle === "start") {
+        const clamped = Math.max(0, Math.min(mouseSec, endSec - 0.5));
+        setStartSec(clamped);
+        if (videoRef.current) {
+          videoRef.current.currentTime = clamped;
+        }
+        onTrimChange(formatTimeHHMMSS(clamped), formatTimeHHMMSS(endSec));
+      } else if (draggingHandle === "end") {
+        const clamped = Math.min(duration, Math.max(mouseSec, startSec + 0.5));
+        setEndSec(clamped);
+        if (videoRef.current) {
+          videoRef.current.currentTime = clamped;
+        }
+        onTrimChange(formatTimeHHMMSS(startSec), formatTimeHHMMSS(clamped));
+      } else if (draggingHandle === "playhead") {
+        const clamped = Math.max(0, Math.min(duration, mouseSec));
+        setCurrentTime(clamped);
+        if (videoRef.current) {
+          videoRef.current.currentTime = clamped;
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDraggingHandle(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [draggingHandle, endSec, startSec, duration, getTimeFromMouse, onTrimChange, videoRef]);
+
+  const handleTrackClick = (e: React.MouseEvent) => {
+    if (draggingHandle) return;
+    const clickSec = getTimeFromMouse(e.clientX);
+    setCurrentTime(clickSec);
     if (videoRef.current) {
-      videoRef.current.currentTime = clamped;
+      videoRef.current.currentTime = clickSec;
     }
+  };
+
+  const setInPointToPlayhead = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const cur = video.currentTime;
+    const clamped = Math.max(0, Math.min(cur, endSec - 0.5));
+    setStartSec(clamped);
     onTrimChange(formatTimeHHMMSS(clamped), formatTimeHHMMSS(endSec));
   };
 
-  const handleEndChange = (val: number) => {
-    const clamped = Math.max(val, startSec + 1);
+  const setOutPointToPlayhead = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const cur = video.currentTime;
+    const clamped = Math.min(duration, Math.max(cur, startSec + 0.5));
     setEndSec(clamped);
     onTrimChange(formatTimeHHMMSS(startSec), formatTimeHHMMSS(clamped));
   };
@@ -118,118 +187,186 @@ export default function VideoTimelineTrimmer({
     }
   };
 
-  const playheadPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const startPercent = duration > 0 ? (startSec / duration) * 100 : 0;
-  const endPercent = duration > 0 ? (endSec / duration) * 100 : 100;
+  const playheadPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const startPct = duration > 0 ? (startSec / duration) * 100 : 0;
+  const endPct = duration > 0 ? (endSec / duration) * 100 : 100;
+
+  // Generate tick marks across timeline
+  const tickCount = 10;
+  const ticks = Array.from({ length: tickCount + 1 }).map((_, i) => (i / tickCount) * duration);
 
   return (
-    <div className="bg-white rounded-lg border border-blue-100 p-4 shadow-sm space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="bg-gray-900 rounded-xl p-5 shadow-lg border border-gray-800 text-white space-y-4 select-none">
+      {/* Top Bar: Title & In/Out Quick Buttons */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800 pb-3">
         <div className="flex items-center gap-2">
-          <Scissors className="w-4 h-4 text-blue-600" />
-          <span className="text-sm font-semibold text-gray-900">Visual Video Timeline</span>
+          <Scissors className="w-5 h-5 text-amber-400" />
+          <h3 className="text-sm font-semibold tracking-wide text-gray-100">Pro Video Timeline Editor</h3>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* Video Editor Shortcuts: Set In [ & Out ] */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={setInPointToPlayhead}
+            title="Set In Point (Start) at Playhead"
+            className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-xs font-medium text-amber-300 px-3 py-1.5 rounded-md border border-gray-700 transition-colors"
+          >
+            <Bookmark className="w-3.5 h-3.5" />
+            Set Start [
+          </button>
+          <button
+            type="button"
+            onClick={setOutPointToPlayhead}
+            title="Set Out Point (End) at Playhead"
+            className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-xs font-medium text-amber-300 px-3 py-1.5 rounded-md border border-gray-700 transition-colors"
+          >
+            <Flag className="w-3.5 h-3.5" />
+            Set End ]
+          </button>
+          <div className="h-4 w-px bg-gray-700 mx-1" />
           <button
             type="button"
             onClick={() => handlePreset(15)}
-            className="text-xs bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 rounded transition-colors"
+            className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1.5 rounded-md transition-colors"
           >
             15s
           </button>
           <button
             type="button"
             onClick={() => handlePreset(30)}
-            className="text-xs bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 rounded transition-colors"
+            className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1.5 rounded-md transition-colors"
           >
             30s
           </button>
           <button
             type="button"
             onClick={handleReset}
-            className="text-xs flex items-center gap-1 bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-2 py-0.5 rounded transition-colors"
+            className="text-xs flex items-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1.5 rounded-md transition-colors"
           >
             <RotateCcw className="w-3 h-3" />
-            Full
+            Reset
           </button>
         </div>
       </div>
 
-      {/* Visual Bar Trimmer */}
-      <div className="space-y-3">
-        <div className="relative h-8 bg-gray-100 rounded border border-gray-200 overflow-hidden select-none">
-          {/* Active Trimmed Region */}
-          <div
-            className="absolute top-0 bottom-0 bg-blue-100 border-l-2 border-r-2 border-blue-600 opacity-90"
-            style={{
-              left: `${startPercent}%`,
-              width: `${endPercent - startPercent}%`,
-            }}
-          />
+      {/* Time Ruler Bar */}
+      <div className="relative h-4 w-full flex justify-between px-1 text-[10px] font-mono text-gray-400">
+        {ticks.map((t, idx) => (
+          <div key={idx} className="flex flex-col items-center">
+            <span className="leading-none">{formatDisplayTime(t)}</span>
+            <div className="w-px h-1.5 bg-gray-600 mt-0.5" />
+          </div>
+        ))}
+      </div>
 
-          {/* Playhead Marker */}
-          <div
-            className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10 transition-all"
-            style={{ left: `${playheadPercent}%` }}
-          >
-            <div className="w-2 h-2 bg-red-500 -ml-0.75 rotate-45 rounded-xs" />
+      {/* Main Interactive Timeline Track */}
+      <div
+        ref={trackRef}
+        onClick={handleTrackClick}
+        className="relative h-16 bg-gray-950 rounded-lg border border-gray-800 overflow-hidden cursor-pointer shadow-inner"
+      >
+        {/* Track Background Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:12px_100%]" />
+
+        {/* Unselected Dark Overlay Left */}
+        <div
+          className="absolute top-0 bottom-0 left-0 bg-black/60 backdrop-blur-[1px] pointer-events-none"
+          style={{ width: `${startPct}%` }}
+        />
+
+        {/* Selected Clip Highlight Box */}
+        <div
+          className="absolute top-0 bottom-0 bg-amber-500/20 border-t-2 border-b-2 border-amber-400"
+          style={{
+            left: `${startPct}%`,
+            width: `${endPct - startPct}%`,
+          }}
+        />
+
+        {/* Unselected Dark Overlay Right */}
+        <div
+          className="absolute top-0 bottom-0 right-0 bg-black/60 backdrop-blur-[1px] pointer-events-none"
+          style={{ width: `${100 - endPct}%` }}
+        />
+
+        {/* LEFT TRIM HANDLE (Yellow Drag Bar) */}
+        <div
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            setDraggingHandle("start");
+          }}
+          className="absolute top-0 bottom-0 w-4 bg-amber-400 hover:bg-amber-300 cursor-ew-resize flex items-center justify-center rounded-l shadow-lg z-20 transition-colors group"
+          style={{ left: `calc(${startPct}% - 4px)` }}
+        >
+          {/* Handle Grip Lines */}
+          <div className="flex flex-col gap-1">
+            <div className="w-0.5 h-4 bg-gray-900 rounded-full" />
+          </div>
+          {/* Tooltip */}
+          <div className="absolute -top-7 bg-amber-400 text-gray-950 font-mono font-bold text-[10px] px-1.5 py-0.5 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            {formatDisplayTime(startSec)}
           </div>
         </div>
 
-        {/* Start Slider */}
-        <div>
-          <div className="flex justify-between text-xs text-gray-600 mb-1">
-            <span>Trim Start</span>
-            <span className="font-mono text-blue-600 font-semibold">
-              {formatDisplayTime(startSec)}
-            </span>
+        {/* RIGHT TRIM HANDLE (Yellow Drag Bar) */}
+        <div
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            setDraggingHandle("end");
+          }}
+          className="absolute top-0 bottom-0 w-4 bg-amber-400 hover:bg-amber-300 cursor-ew-resize flex items-center justify-center rounded-r shadow-lg z-20 transition-colors group"
+          style={{ left: `calc(${endPct}% - 12px)` }}
+        >
+          {/* Handle Grip Lines */}
+          <div className="flex flex-col gap-1">
+            <div className="w-0.5 h-4 bg-gray-900 rounded-full" />
           </div>
-          <input
-            type="range"
-            min={0}
-            max={duration}
-            step={0.1}
-            value={startSec}
-            onChange={(e) => handleStartChange(Number(e.target.value))}
-            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-          />
+          {/* Tooltip */}
+          <div className="absolute -top-7 bg-amber-400 text-gray-950 font-mono font-bold text-[10px] px-1.5 py-0.5 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            {formatDisplayTime(endSec)}
+          </div>
         </div>
 
-        {/* End Slider */}
-        <div>
-          <div className="flex justify-between text-xs text-gray-600 mb-1">
-            <span>Trim End</span>
-            <span className="font-mono text-blue-600 font-semibold">
-              {formatDisplayTime(endSec)}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={duration}
-            step={0.1}
-            value={endSec}
-            onChange={(e) => handleEndChange(Number(e.target.value))}
-            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-          />
+        {/* PLAYHEAD SCRUBBER (Red Line with Top Knob) */}
+        <div
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            setDraggingHandle("playhead");
+          }}
+          className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 cursor-ew-resize group"
+          style={{ left: `${playheadPct}%` }}
+        >
+          {/* Red Playhead Top Marker */}
+          <div className="w-3 h-3 bg-red-500 -ml-1.25 -mt-1 rotate-45 rounded-xs shadow-md border border-white" />
         </div>
       </div>
 
-      {/* Control Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+      {/* Bottom Action Footer */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
         <button
           type="button"
           onClick={togglePreview}
-          className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-950 px-4 py-2 rounded-lg text-xs font-bold transition-all shadow"
         >
-          {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-          {isPlaying ? "Pause Preview" : "Play Trim Segment"}
+          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-gray-950" />}
+          {isPlaying ? "Pause Preview" : "Play Trimmed Segment"}
         </button>
 
-        <div className="text-xs font-mono bg-blue-50 text-blue-700 px-2.5 py-1 rounded">
-          Selected Duration: {formatDisplayTime(Math.max(0, endSec - startSec))}
+        {/* Metadata Badges */}
+        <div className="flex items-center gap-3 text-xs font-mono">
+          <div className="bg-gray-800 px-3 py-1.5 rounded-md border border-gray-700">
+            <span className="text-gray-400">Start: </span>
+            <span className="text-amber-400 font-semibold">{formatDisplayTime(startSec)}</span>
+          </div>
+          <div className="bg-gray-800 px-3 py-1.5 rounded-md border border-gray-700">
+            <span className="text-gray-400">End: </span>
+            <span className="text-amber-400 font-semibold">{formatDisplayTime(endSec)}</span>
+          </div>
+          <div className="bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 text-amber-300">
+            <span className="text-gray-300">Selected Duration: </span>
+            <span className="font-bold">{formatDisplayTime(Math.max(0, endSec - startSec))}</span>
+          </div>
         </div>
       </div>
     </div>
