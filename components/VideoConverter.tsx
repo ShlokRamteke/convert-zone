@@ -161,6 +161,13 @@ export default function VideoConverter() {
     if (acceptedFiles.length > 0) {
       const selectedFile = acceptedFiles[0];
       setFile(selectedFile);
+      
+      // Reset metadata and settings for new file
+      setVideoMetadata({});
+      setTrimEnabled(false);
+      setStartTime("00:00:00");
+      setEndTime("00:00:30");
+      
       const url = URL.createObjectURL(selectedFile);
       setVideoUrl(url);
 
@@ -168,6 +175,7 @@ export default function VideoConverter() {
       const video = document.createElement("video");
       video.preload = "metadata";
       video.src = url;
+      
       video.onloadedmetadata = async () => {
         const duration = Math.floor(video.duration);
         const parsedFps = await parseMp4Fps(selectedFile);
@@ -181,8 +189,17 @@ export default function VideoConverter() {
         const defaultEnd = Math.min(30, duration);
         setEndTime(formatTime(defaultEnd));
       };
+
+      video.onerror = () => {
+        // Clear metadata to avoid displaying stale data from previous files
+        setVideoMetadata({});
+        toast({
+          title: "Preview Unavailable",
+          description: "This browser cannot preview this video format natively (such as WebM or MKV on some browsers), but you can still proceed to convert it.",
+        });
+      };
     }
-  }, []);
+  }, [toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -509,7 +526,7 @@ export default function VideoConverter() {
                     <select
                       value={fps}
                       onChange={(e) => handleSettingChange(() => setFps(Number(e.target.value)))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {FPS_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -572,7 +589,7 @@ export default function VideoConverter() {
                             value={startTime}
                             onChange={(e) => handleSettingChange(() => handleStartTimeChange(e.target.value))}
                             placeholder="00:00:00"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                           {videoMetadata.duration && (
                             <p className="text-xs text-gray-500 mt-1">
@@ -587,7 +604,7 @@ export default function VideoConverter() {
                             value={endTime}
                             onChange={(e) => handleSettingChange(() => handleEndTimeChange(e.target.value))}
                             placeholder="00:00:30"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                           {videoMetadata.duration && (
                             <p className="text-xs text-gray-500 mt-1">

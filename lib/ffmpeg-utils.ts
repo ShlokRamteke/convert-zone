@@ -357,11 +357,11 @@ export async function convertVideo(
       if (typeof options.resolution === "string") {
         const preset = RESOLUTION_PRESETS[options.resolution];
         // Preserve aspect ratio: scale to width, let height adjust automatically
-        // Use -1:-1 in pad to safely center. Force even dimensions before pad if needed.
-        scale = `scale=${preset.width}:${preset.height}:force_original_aspect_ratio=decrease,pad=${preset.width}:${preset.height}:-1:-1:color=black`;
+        // Center the scaled video inside the target padded resolution safely.
+        scale = `scale=${preset.width}:${preset.height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${preset.width}:${preset.height}:(ow-iw)/2:(oh-ih)/2:color=black`;
       } else {
         // For custom resolution, preserve aspect ratio
-        scale = `scale=${options.resolution.width}:${options.resolution.height}:force_original_aspect_ratio=decrease,pad=${options.resolution.width}:${options.resolution.height}:-1:-1:color=black`;
+        scale = `scale=${options.resolution.width}:${options.resolution.height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${options.resolution.width}:${options.resolution.height}:(ow-iw)/2:(oh-ih)/2:color=black`;
       }
       // Add scaling filter
       if (format !== "gif") {
@@ -388,7 +388,7 @@ export async function convertVideo(
       if (format === "mp4" || format === "mov" || format === "m4v") {
         command.push("-c:a", "aac", "-b:a", "128k");
       } else if (format === "webm") {
-        command.push("-c:a", "opus", "-b:a", "128k");
+        command.push("-c:a", "libopus", "-b:a", "128k");
       } else {
         command.push("-c:a", "copy");
       }
@@ -398,7 +398,10 @@ export async function convertVideo(
     command.push("-y", outputName);
 
     // Execute conversion
-    await ffmpeg.exec(command);
+    const exitCode = await ffmpeg.exec(command);
+    if (exitCode !== 0) {
+      throw new Error(`FFmpeg video conversion failed with exit code ${exitCode}.`);
+    }
 
     // Read output file
     const data = await ffmpeg.readFile(outputName);
@@ -490,7 +493,10 @@ export async function convertImage(
     command.push("-y", outputName);
 
     // Execute conversion
-    await ffmpeg.exec(command);
+    const exitCode = await ffmpeg.exec(command);
+    if (exitCode !== 0) {
+      throw new Error(`FFmpeg image conversion failed with exit code ${exitCode}.`);
+    }
 
     // Read output file
     const data = await ffmpeg.readFile(outputName);
@@ -579,7 +585,10 @@ export async function convertAudio(
     command.push("-y", outputName);
 
     // Execute conversion
-    await ffmpeg.exec(command);
+    const exitCode = await ffmpeg.exec(command);
+    if (exitCode !== 0) {
+      throw new Error(`FFmpeg audio conversion failed with exit code ${exitCode}.`);
+    }
 
     // Read output file
     const data = await ffmpeg.readFile(outputName);

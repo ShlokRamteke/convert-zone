@@ -190,7 +190,10 @@ export default function AudioConverter() {
             outputName,
           ];
 
-          await ffmpeg.exec(ffmpegArgs);
+          const exitCode = await ffmpeg.exec(ffmpegArgs);
+          if (exitCode !== 0) {
+            throw new Error(`FFmpeg failed with exit code ${exitCode}`);
+          }
 
           const data = await ffmpeg.readFile(outputName);
           let arrayBuffer: ArrayBuffer;
@@ -341,7 +344,7 @@ export default function AudioConverter() {
                     }))
                   );
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {AUDIO_FORMATS.map((format) => (
                   <option key={format.value} value={format.value}>
