@@ -64,7 +64,7 @@ async function parseMp4Fps(file: File): Promise<number | null> {
     const bytes = new Uint8Array(buffer);
 
     // Helper to find box offset by ASCII name
-    function findBox(name: string, start = 0): number {
+    const findBox = (name: string, start = 0): number => {
       const nameBytes = new TextEncoder().encode(name);
       for (let i = start; i < bytes.length - 8; i++) {
         if (
@@ -80,7 +80,7 @@ async function parseMp4Fps(file: File): Promise<number | null> {
         }
       }
       return -1;
-    }
+    };
 
     // Find mdhd to get timescale
     const mdhdOffset = findBox("mdhd");
