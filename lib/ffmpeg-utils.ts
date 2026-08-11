@@ -107,6 +107,9 @@ export interface AudioConversionOptions {
   bitrate?: string; // e.g., "192k", "320k"
   sampleRate?: number; // e.g., 44100, 48000
   channels?: number; // 1 for mono, 2 for stereo
+  startTime?: string; // Start time for trimming (e.g., "00:00:05")
+  duration?: string; // Duration for trimming (e.g., "00:00:15")
+  volume?: number; // Volume multiplier (e.g., 1.5 for 150%)
   extractFromVideo?: boolean;
   codec?: string; // Override default codec
   onProgress?: (progress: number) => void;
@@ -541,11 +544,28 @@ export async function convertAudio(
     await ffmpeg.writeFile(file.name, fileData);
 
     // Build command
-    const command: string[] = ["-i", file.name];
+    const command: string[] = [];
+
+    // Start time seeking (before -i for fast seeking)
+    if (options.startTime) {
+      command.push("-ss", options.startTime);
+    }
+
+    command.push("-i", file.name);
+
+    // Duration (after -i)
+    if (options.duration) {
+      command.push("-t", options.duration);
+    }
 
     // Extract audio from video (remove video stream)
     if (options.extractFromVideo) {
       command.push("-vn");
+    }
+
+    // Audio volume filter
+    if (options.volume !== undefined && options.volume !== 1.0) {
+      command.push("-af", `volume=${options.volume}`);
     }
 
     // Audio codec
@@ -699,6 +719,9 @@ export async function convertFile(
         bitrate: options.bitrate,
         sampleRate: options.sampleRate,
         channels: options.channels,
+        startTime: options.startTime,
+        duration: options.duration,
+        volume: options.volume,
         extractFromVideo: options.extractFromVideo,
         codec: options.codec,
         onProgress: options.onProgress,

@@ -3,8 +3,9 @@
 import { useCallback, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { convertAudio } from "@/lib/ffmpeg-utils";
-import { Upload, Zap, X, Check, Loader2, FileAudio, Download, Trash2 } from "lucide-react";
+import { Upload, Zap, X, Check, Loader2, FileAudio, Download, Trash2, Settings, Scissors, ChevronDown, ChevronUp, Volume2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import AudioWaveformTrimmer from "./AudioWaveformTrimmer";
 
 const AUDIO_FORMATS = [
   { value: "mp3", label: "MP3 Audio" },
@@ -19,6 +20,19 @@ const QUALITY_PRESETS = [
   { label: "Low (64k)", value: "64" },
   { label: "Medium (128k)", value: "128" },
   { label: "High (320k)", value: "320" },
+];
+
+const SAMPLE_RATES = [
+  { value: 0, label: "Original" },
+  { value: 48000, label: "48 kHz (Studio)" },
+  { value: 44100, label: "44.1 kHz (CD Quality)" },
+  { value: 22050, label: "22.05 kHz (Low)" },
+];
+
+const CHANNELS_OPTIONS = [
+  { value: 0, label: "Original" },
+  { value: 2, label: "Stereo (2 Channels)" },
+  { value: 1, label: "Mono (1 Channel)" },
 ];
 
 type FileStatus = "waiting" | "converting" | "completed" | "error";
@@ -36,6 +50,13 @@ export default function AudioConverter() {
   const [converting, setConverting] = useState(false);
   const [targetFormat, setTargetFormat] = useState("mp3");
   const [quality, setQuality] = useState("320");
+  const [trimEnabled, setTrimEnabled] = useState(false);
+  const [startTime, setStartTime] = useState("00:00:00");
+  const [durationSec, setDurationSec] = useState(0);
+  const [volume, setVolume] = useState(100);
+  const [sampleRate, setSampleRate] = useState(0);
+  const [channels, setChannels] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const { toast } = useToast();
 
   const downloadUrlsRef = useRef<string[]>([]);
@@ -97,6 +118,27 @@ export default function AudioConverter() {
     }
   };
 
+  const buildAudioOptions = (onProgress: (prog: number) => void) => {
+    const opts: any = {
+      bitrate: `${quality}k`,
+      onProgress,
+    };
+    if (trimEnabled && durationSec > 0) {
+      opts.startTime = startTime;
+      opts.duration = String(durationSec);
+    }
+    if (volume !== 100) {
+      opts.volume = volume / 100;
+    }
+    if (sampleRate > 0) {
+      opts.sampleRate = sampleRate;
+    }
+    if (channels > 0) {
+      opts.channels = channels;
+    }
+    return opts;
+  };
+
   const convert = async () => {
     if (!files.length) return;
 
@@ -116,18 +158,17 @@ export default function AudioConverter() {
         });
 
         try {
-          const result = await convertAudio(file, targetFormat, {
-            bitrate: `${quality}k`,
-            onProgress: (prog: number) => {
-              setFiles((prev) => {
-                const next = [...prev];
-                if (next[i]) {
-                  next[i] = { ...next[i], progress: prog };
-                }
-                return next;
-              });
-            },
+          const opts = buildAudioOptions((prog: number) => {
+            setFiles((prev) => {
+              const next = [...prev];
+              if (next[i]) {
+                next[i] = { ...next[i], progress: prog };
+              }
+              return next;
+            });
           });
+
+          const result = await convertAudio(file, targetFormat, opts);
 
           const url = URL.createObjectURL(result.blob);
           downloadUrlsRef.current.push(url);
@@ -182,18 +223,17 @@ export default function AudioConverter() {
     });
 
     try {
-      const result = await convertAudio(file, targetFormat, {
-        bitrate: `${quality}k`,
-        onProgress: (prog: number) => {
-          setFiles((prev) => {
-            const next = [...prev];
-            if (next[index]) {
-              next[index] = { ...next[index], progress: prog };
-            }
-            return next;
-          });
-        },
+      const opts = buildAudioOptions((prog: number) => {
+        setFiles((prev) => {
+          const next = [...prev];
+          if (next[index]) {
+            next[index] = { ...next[index], progress: prog };
+          }
+          return next;
+        });
       });
+
+      const result = await convertAudio(file, targetFormat, opts);
 
       const url = URL.createObjectURL(result.blob);
       downloadUrlsRef.current.push(url);
@@ -369,6 +409,107 @@ export default function AudioConverter() {
               </button>
             </div>
           </div>
+
+          {/* Advanced Options Accordion */}
+          <div className="mt-6 border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center justify-between w-full py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4 text-gray-500" />
+                <span>Advanced Options (Volume, Sample Rate, Channels)</span>
+              </div>
+              {showAdvanced ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+
+            {showAdvanced && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
+                {/* Volume Slider */}
+                <div>
+                  <div className="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                    <span className="flex items-center gap-1.5">
+                      <Volume2 className="w-4 h-4 text-blue-600" />
+                      Audio Volume
+                    </span>
+                    <span className="text-blue-600 font-mono">{volume}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="25"
+                    max="200"
+                    step="5"
+                    value={volume}
+                    onChange={(e) => setVolume(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>25% (Quieter)</span>
+                    <span>100% (Original)</span>
+                    <span>200% (Louder 2x)</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Sample Rate */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Sample Rate
+                    </label>
+                    <select
+                      value={sampleRate}
+                      onChange={(e) => setSampleRate(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {SAMPLE_RATES.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Channels */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Channels
+                    </label>
+                    <select
+                      value={channels}
+                      onChange={(e) => setChannels(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {CHANNELS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Waveform Timeline Trimmer */}
+      {files.length > 0 && (
+        <div className="mt-6">
+          <AudioWaveformTrimmer
+            key={files[0].file.name + files[0].file.size}
+            file={files[0].file}
+            onTrimChange={(start, end, duration) => {
+              setStartTime(start);
+              setDurationSec(duration);
+              setTrimEnabled(true);
+            }}
+          />
         </div>
       )}
 

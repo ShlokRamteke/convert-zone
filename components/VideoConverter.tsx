@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { convertFile, formatFileSize, RESOLUTION_PRESETS } from "@/lib/ffmpeg-utils";
+import VideoTimelineTrimmer from "./VideoTimelineTrimmer";
 import {
   Play,
   FileVideo,
@@ -581,43 +581,40 @@ export default function VideoConverter() {
                       </button>
                     </div>
                     {trimEnabled && (
-                      <div className="space-y-3 pl-6 border-l-2 border-blue-200">
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">Start Time</label>
-                          <input
-                            type="text"
-                            value={startTime}
-                            onChange={(e) => handleSettingChange(() => handleStartTimeChange(e.target.value))}
-                            placeholder="00:00:00"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      <div className="mt-3">
+                        {videoMetadata.duration ? (
+                          <VideoTimelineTrimmer
+                            videoRef={videoRef as React.RefObject<HTMLVideoElement>}
+                            duration={videoMetadata.duration}
+                            onTrimChange={(start, end) => {
+                              handleSettingChange(() => {
+                                setStartTime(start);
+                                setEndTime(end);
+                              });
+                            }}
                           />
-                          {videoMetadata.duration && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Max: {formatTime(videoMetadata.duration)}
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">End Time</label>
-                          <input
-                            type="text"
-                            value={endTime}
-                            onChange={(e) => handleSettingChange(() => handleEndTimeChange(e.target.value))}
-                            placeholder="00:00:30"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          {videoMetadata.duration && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Max: {formatTime(videoMetadata.duration)}
-                            </p>
-                          )}
-                        </div>
-                        {startTime && endTime && (
-                          <div className="bg-blue-50 p-2 rounded text-xs text-blue-700">
-                            Duration:{" "}
-                            {formatTime(
-                              parseTimeToSeconds(endTime) - parseTimeToSeconds(startTime)
-                            )}
+                        ) : (
+                          <div className="space-y-3 pl-6 border-l-2 border-blue-200">
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+                              <input
+                                type="text"
+                                value={startTime}
+                                onChange={(e) => handleSettingChange(() => handleStartTimeChange(e.target.value))}
+                                placeholder="00:00:00"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">End Time</label>
+                              <input
+                                type="text"
+                                value={endTime}
+                                onChange={(e) => handleSettingChange(() => handleEndTimeChange(e.target.value))}
+                                placeholder="00:00:30"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
