@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConvertZoneLogo from "@/components/ConvertZoneLogo";
 
 export const metadata = {
   title: "Privacy Policy - ConvertZone (2026)",
@@ -14,7 +15,7 @@ export default function PrivacyPage() {
       <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/favicon.png" alt="ConvertZone" className="w-8 h-8 object-contain" />
+            <ConvertZoneLogo size={34} />
             <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
           </Link>
           <Link

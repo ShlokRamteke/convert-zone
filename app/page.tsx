@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
+import ConvertZoneLogo from "@/components/ConvertZoneLogo";
 import {
   Shield,
   Lock,
@@ -64,7 +65,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center gap-2">
-              <img src="/favicon.png" alt="ConvertZone" className="w-8 h-8 object-contain" />
+              <ConvertZoneLogo size={34} />
               <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
             </Link>
             <nav className="hidden md:flex items-center gap-6">
@@ -492,7 +493,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <img src="/favicon.png" alt="ConvertZone" className="w-8 h-8 object-contain" />
+              <ConvertZoneLogo size={34} />
               <span className="text-gray-900 font-semibold text-lg">ConvertZone</span>
             </Link>
             <nav className="flex items-center gap-6">
