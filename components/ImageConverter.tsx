@@ -10,6 +10,7 @@ import {
   Download,
   Loader2,
   CheckCircle2,
+  Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -300,16 +301,31 @@ export default function ImageConverter() {
               ))}
             </div>
 
-            <button
-              onClick={downloadAll}
-              disabled={completedCount === 0}
-              className={`flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors ${
-                completedCount === 0 ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <Download className="w-4 h-4" />
-              Download All ({completedCount})
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={convertAll}
+                disabled={converting || !files.some((f) => f.status === "ready")}
+                className={`flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors ${
+                  converting || !files.some((f) => f.status === "ready")
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                <Zap className="w-4 h-4" />
+                {converting ? "Converting..." : "Convert All"}
+              </button>
+
+              <button
+                onClick={downloadAll}
+                disabled={completedCount === 0}
+                className={`flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors ${
+                  completedCount === 0 ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <Download className="w-4 h-4" />
+                Download All ({completedCount})
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -403,19 +419,6 @@ export default function ImageConverter() {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Convert Button (if files are ready) */}
-      {files.length > 0 && files.some((f) => f.status === "ready") && (
-        <div className="mt-6 text-center">
-          <button
-            onClick={convertAll}
-            disabled={converting}
-            className="bg-blue-600 text-white px-8 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {converting ? "Converting..." : "Convert All"}
-          </button>
         </div>
       )}
     </div>
