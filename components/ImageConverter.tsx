@@ -204,12 +204,16 @@ export default function ImageConverter() {
 
   const downloadAll = () => {
     const completedFiles = files.filter((f) => f.status === "completed" && f.downloadUrl);
-    completedFiles.forEach((fileWithStatus) => {
+    completedFiles.forEach((fileWithStatus, index) => {
       if (fileWithStatus.downloadUrl) {
-        const a = document.createElement("a");
-        a.href = fileWithStatus.downloadUrl;
-        a.download = `${fileWithStatus.file.name.split(".")[0]}.${targetFormat}`;
-        a.click();
+        setTimeout(() => {
+          const a = document.createElement("a");
+          a.href = fileWithStatus.downloadUrl!;
+          a.download = `${fileWithStatus.file.name.split(".")[0]}.${targetFormat}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }, index * 350);
       }
     });
   };
