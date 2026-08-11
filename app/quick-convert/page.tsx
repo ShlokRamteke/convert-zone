@@ -107,11 +107,11 @@ export default function QuickConvertPage() {
 
   const removeFile = (index: number) => {
     setFiles((prev) => {
-      const newFiles = prev.filter((_, i) => i !== index);
-      if (prev[index].downloadUrl) {
-        URL.revokeObjectURL(prev[index].downloadUrl);
+      const target = prev[index];
+      if (target?.downloadUrl) {
+        URL.revokeObjectURL(target.downloadUrl);
       }
-      return newFiles;
+      return prev.filter((_, i) => i !== index);
     });
   };
 

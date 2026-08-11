@@ -73,14 +73,12 @@ export default function ImageConverter() {
 
   const removeFile = (index: number) => {
     setFiles((prev) => {
-      const newFiles = prev.filter((_, i) => i !== index);
-      if (prev[index].previewUrl) {
-        URL.revokeObjectURL(prev[index].previewUrl);
+      const target = prev[index];
+      if (target) {
+        if (target.previewUrl) URL.revokeObjectURL(target.previewUrl);
+        if (target.downloadUrl) URL.revokeObjectURL(target.downloadUrl);
       }
-      if (prev[index].downloadUrl) {
-        URL.revokeObjectURL(prev[index].downloadUrl);
-      }
-      return newFiles;
+      return prev.filter((_, i) => i !== index);
     });
   };
 
