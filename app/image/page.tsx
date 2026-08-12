@@ -1,8 +1,15 @@
+import { Metadata } from "next";
 import ImageConverter from "@/components/ImageConverter";
 import NoSSRWrapper from "@/components/NoSSRWrapper";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Lock } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Local In-Browser Image Converter & WebP/AVIF Optimizer",
+  description:
+    "Convert, resize, and compress PNG, JPG, WebP, and AVIF images locally in your browser with zero server uploads.",
+};
 
 export default function ImagePage() {
   return (
