@@ -60,12 +60,20 @@ ConvertZone is a **client-side media converter** that allows you to:
 - ✅ **No Server Required**: Zero backend infrastructure
 - ✅ **No Data Collection**: Your files are never stored or transmitted
 
+#### 🔍 SEO & Social Sharing
+- ✅ **Static OpenGraph & Twitter Cards**: Includes custom 16:9 landscape (`1376x768`) preview card (`opengraph-image.jpg` & `twitter-image.jpg`) optimized for social media share previews.
+- ✅ **Dynamic Sitemap**: Dynamic sitemap generation via [`app/sitemap.ts`](file:///Users/shlok/Projects/convert-zone/app/sitemap.ts) supporting all active routes.
+- ✅ **Search Engine Crawlability**: Configured search engine crawler rules in [`app/robots.ts`](file:///Users/shlok/Projects/convert-zone/app/robots.ts).
+- ✅ **Canonical URL Configuration**: Standardized canonical domain fallbacks for clean crawling.
+- ✅ **Page-Specific Metadata**: Context-aware HTML meta tags for all main converters.
+
 #### Technical Capabilities
 - **FFmpeg WASM**: Powered by industry-standard FFmpeg running in WebAssembly
 - **No File Size Limits**: Process files of any size (limited only by device memory)
 - **Parallel Processing**: Convert multiple files simultaneously
 - **Progress Tracking**: Real-time progress updates for all operations
 - **Error Handling**: Graceful error handling with user-friendly messages
+
 
 ## 🛠️ Technology Stack
 
@@ -81,21 +89,25 @@ ConvertZone is a **client-side media converter** that allows you to:
 ```
 convert-zone/
 ├── app/
-│   ├── page.tsx          # Homepage with Quick Convert
-│   ├── video/page.tsx     # Video converter page
-│   ├── image/page.tsx    # Image converter page
-│   ├── audio/page.tsx    # Audio converter page
-│   └── layout.tsx        # Root layout
+│   ├── page.tsx            # Homepage with Quick Convert
+│   ├── video/page.tsx      # Video converter page
+│   ├── image/page.tsx      # Image converter page
+│   ├── audio/page.tsx      # Audio converter page
+│   ├── layout.tsx          # Root layout
+│   ├── opengraph-image.jpg # 16:9 social share OpenGraph banner
+│   ├── twitter-image.jpg   # 16:9 Twitter social share banner
+│   ├── robots.ts           # Dynamic Search Engine robots instructions
+│   └── sitemap.ts          # Dynamic website URL index
 ├── components/
-│   ├── VideoConverter.tsx    # Video conversion component
-│   ├── ImageConverter.tsx     # Image conversion component
-│   ├── AudioConverter.tsx    # Audio conversion component
-│   └── ui/                    # Reusable UI components
+│   ├── VideoConverter.tsx  # Video conversion component
+│   ├── ImageConverter.tsx  # Image conversion component
+│   ├── AudioConverter.tsx  # Audio conversion component
+│   └── ui/                 # Reusable UI components
 ├── lib/
-│   ├── ffmpeg-utils.ts        # Core FFmpeg utilities
-│   └── utils.ts               # General utilities
+│   ├── ffmpeg-utils.ts     # Core FFmpeg utilities
+│   └── utils.ts            # General utilities
 └── hooks/
-    └── use-toast.ts           # Toast notification hook
+    └── use-toast.ts        # Toast notification hook
 ```
 
 ## 🎨 Design Philosophy
