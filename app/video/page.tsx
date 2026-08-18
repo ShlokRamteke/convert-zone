@@ -1,8 +1,15 @@
+import { Metadata } from "next";
 import NoSSRWrapper from "@/components/NoSSRWrapper";
 import VideoConverter from "@/components/VideoConverter";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Lock } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Local In-Browser Video Converter, Upscaler & Trimmer",
+  description:
+    "Convert, trim, crop, and upscale videos directly in your browser with WebAssembly FFmpeg. Zero file uploads, 100% private.",
+};
 
 export default function VideoPage() {
   return (

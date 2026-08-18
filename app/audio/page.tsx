@@ -1,8 +1,15 @@
+import { Metadata } from "next";
 import AudioConverter from "@/components/AudioConverter";
 import NoSSRWrapper from "@/components/NoSSRWrapper";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Lock } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Local In-Browser Audio Converter, Booster & Waveform Trimmer",
+  description:
+    "Convert, boost volume, normalize, and trim MP3, WAV, AAC, FLAC audio directly in your browser. 100% private.",
+};
 
 export default function AudioPage() {
   return (

@@ -1,10 +1,17 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { ToastProvider } from "@/components/ui/toast";
 
 const websiteUrl =
-  process.env.WEBSITE_URL || "https://www.mediaconverterpro.com";
+  process.env.WEBSITE_URL || "https://convert-zone.vercel.app";
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   title: {
@@ -38,14 +45,6 @@ export const metadata: Metadata = {
       "Convert videos, images, and audio directly in your browser. 100% private, 0 bytes uploaded to servers.",
     url: websiteUrl,
     siteName: "ConvertZone",
-    images: [
-      {
-        url: `${websiteUrl}/favicon.svg`,
-        width: 512,
-        height: 512,
-        alt: "ConvertZone Logo",
-      },
-    ],
     locale: "en_US",
     type: "website",
   },
@@ -53,8 +52,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ConvertZone - In-Browser Local Media Converter",
     description:
-      "Convert videos, images, and audio directly in your browser. 100% private, 0 bytes uploaded.",
-    images: [`${websiteUrl}/favicon.svg`],
+      "Convert videos, images, and audio directly in your browser. 100% private, 0 bytes uploaded to servers.",
     site: "@ConvertZone",
     creator: "@ConvertZone",
   },
@@ -79,10 +77,13 @@ export const metadata: Metadata = {
       { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/favicon.png", type: "image/png" },
     ],
-    apple: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    apple: "/favicon.png",
+    shortcut: "/favicon.png",
   },
   metadataBase: new URL(websiteUrl),
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION,
+  },
 };
 
 export default function RootLayout({
@@ -95,18 +96,6 @@ export default function RootLayout({
 
   return (
     <html lang="en" className="dark">
-      <head>
-        <link rel="canonical" href={`${websiteUrl}`} />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/favicon.png" type="image/png" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
-        <meta name="robots" content="index, follow" />
-        <meta name="theme-color" content="#2563eb" />
-        <meta
-          name="google-site-verification"
-          content={process.env.GOOGLE_SITE_VERIFICATION}
-        />
-      </head>
       <body className="min-h-screen bg-cyber-black text-cyber-text font-mono">
         {/* Google Analytics GA4 */}
         {gaId && (
